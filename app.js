@@ -189,24 +189,38 @@ const listening = {
   applied: 0,   // newest check whose answer was used
 };
 
-function startListening() {
-  const rec = new Recognition();
-  rec.lang = 'pa-IN';
-  rec.continuous = true;
-  rec.interimResults = true;
-  rec.onresult = onSpeech;
-  rec.onerror = (e) => {
-    if (e.error === 'no-speech' || e.error === 'aborted') return;
-    stopListening();
-    const msg = MIC_ERRORS[e.error] || `Listening stopped (${e.error}).`;
-    setStatus(msg);
-    slides.setStatus(msg);
-  };
-  // Browsers end recognition after a pause or a minute or so; start again until Stop.
-  rec.onend = () => { if (listening.on) rec.start(); };
-  rec.start();
+function listeningError(message) {
+  stopListening();
+  setStatus(message);
+  slides.setStatus(message);
+}
 
-  Object.assign(listening, { on: true, rec, heard: [], interim: [], text: '' });
+function startLocalListening() {
+  listening.rec = new LocalGurbaniListener({
+    onText: (text) => {
+      if (!listening.on) return;
+      // Each overlapping audio window replaces the previous transcript.
+      listening.heard = gurmukhiWords(text).slice(-40);
+      listening.interim = [];
+      listening.text = listening.heard.slice(-10).join(' ');
+      $('#heard').textContent = text;
+      checkHeard();
+    },
+    onStatus: (message) => { setStatus(message); slides.setStatus(message); },
+    onError: listeningError,
+  });
+  listening.rec.start();
+}
+
+function startListening() {
+  if (!window.isSecureContext) {
+    $('#unsupported').hidden = false;
+    $('#unsupported').textContent = 'Listening needs a secure connection. Open https://gurbanisync.com. If a certificate warning appears, HTTPS must be fixed before the microphone can work.';
+    setStatus('Microphone access is unavailable on an insecure connection.');
+    return;
+  }
+  Object.assign(listening, { on: true, heard: [], interim: [], text: '', seq: listening.seq + 1 });
+  listening.applied = listening.seq;
   $('#heard').textContent = '';
   showListenState();
   if (!isShowing()) {
@@ -215,12 +229,54 @@ function startListening() {
     renderResults();
   }
   setStatus('');
+  if (!Recognition) { startLocalListening(); return; }
+
+  try {
+    const rec = listening.rec = new Recognition();
+    rec.lang = 'pa-IN';
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.onresult = onSpeech;
+    rec.onerror = (e) => {
+      if (listening.rec !== rec || !listening.on) return;
+      if (e.error === 'no-speech' || e.error === 'aborted') return;
+      if (['not-allowed', 'service-not-allowed', 'language-not-supported', 'network'].includes(e.error)) {
+        rec.onend = null;
+        rec.onresult = null;
+        rec.onerror = null;
+        rec.abort();
+        startLocalListening();
+        return;
+      }
+      listeningError(MIC_ERRORS[e.error] || `Listening stopped (${e.error}).`);
+    };
+    rec.onend = () => {
+      if (!listening.on || listening.rec !== rec) return;
+      try { rec.start(); } catch { startLocalListening(); }
+    };
+    rec.start();
+  } catch {
+    if (listening.rec) {
+      listening.rec.onend = null;
+      listening.rec.onresult = null;
+      listening.rec.onerror = null;
+      try { listening.rec.abort(); } catch { /* recognition never started */ }
+    }
+    startLocalListening();
+  }
 }
 
 function stopListening() {
   if (!listening.on) return;
   listening.on = false;
-  listening.rec?.stop();
+  if (listening.rec) {
+    listening.rec.onend = null;
+    listening.rec.onresult = null;
+    listening.rec.onerror = null;
+    try { listening.rec.stop(); } catch { /* already ended */ }
+    listening.rec = null;
+  }
+  listening.applied = ++listening.seq;
   clearTimeout(listening.timer);
   listening.timer = null;
   $('#heard').textContent = '';
@@ -327,15 +383,12 @@ async function onListenButton() {
     : 'Couldn’t find that. Try again, closer to the sound.');
 }
 
-// Listening is the only way in, so browsers that can't listen get told where it works.
-if (Recognition) {
-  $('#listenBtn').hidden = false;
-  $('#listenHero').hidden = false;
-  $('#listenBtn').addEventListener('click', onListenButton);
-  $('#bigListenBtn').addEventListener('click', onListenButton);
-} else {
-  $('#unsupported').hidden = false;
-}
+// Listening remains available when the browser has no built-in recognition API.
+$('#listenBtn').hidden = false;
+$('#listenHero').hidden = false;
+$('#listenBtn').addEventListener('click', onListenButton);
+$('#bigListenBtn').addEventListener('click', onListenButton);
+window.addEventListener('pagehide', stopListening);
 
 // ---------- results ----------
 
