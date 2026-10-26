@@ -170,9 +170,18 @@ const SEARCH_WORDS = 6;
 // one; jumping further needs a near-certain match.
 const FOLLOW_NEAR = 12;
 
+// Every browser on iPhone and iPad, and Safari on a Mac, uses Apple's speech recognition,
+// which has no Punjabi. There the app listens in Hindi and writes what it hears in Gurmukhi.
+const IS_APPLE_SPEECH = /iPhone|iPad|iPod/.test(navigator.userAgent)
+  || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent))
+  || (/Safari/.test(navigator.userAgent) && !/Chrome|Chromium|Edg|OPR|Firefox/.test(navigator.userAgent));
+const SPEECH_LANGS = IS_APPLE_SPEECH ? ['hi-IN'] : ['pa-IN', 'hi-IN'];
+
 const MIC_ERRORS = {
   'not-allowed': 'Microphone access was blocked. Allow it in the browser’s address bar and try again.',
-  'service-not-allowed': 'This browser doesn’t allow speech recognition here. Try Chrome or Edge.',
+  'service-not-allowed': IS_APPLE_SPEECH
+    ? 'Speech recognition is off on this device. Turn on Dictation (Settings → General → Keyboard → Enable Dictation), then try again.'
+    : 'This browser doesn’t allow speech recognition here. Try Chrome or Edge.',
   'audio-capture': 'No microphone was found.',
   network: 'Listening needs an internet connection.',
   'language-not-supported': 'This browser can’t recognise Punjabi. Try Chrome or Edge.',
@@ -189,14 +198,22 @@ const listening = {
   applied: 0,   // newest check whose answer was used
 };
 
-function startListening() {
+function startListening(langIndex = 0) {
   const rec = new Recognition();
-  rec.lang = 'pa-IN';
+  rec.lang = SPEECH_LANGS[langIndex];
   rec.continuous = true;
   rec.interimResults = true;
   rec.onresult = onSpeech;
   rec.onerror = (e) => {
     if (e.error === 'no-speech' || e.error === 'aborted') return;
+    // No Punjabi here: listen in Hindi instead.
+    const noLang = e.error === 'language-not-supported' || e.error === 'service-not-allowed';
+    if (noLang && langIndex + 1 < SPEECH_LANGS.length) {
+      rec.onend = null;
+      listening.on = false;
+      startListening(langIndex + 1);
+      return;
+    }
     stopListening();
     const msg = MIC_ERRORS[e.error] || `Listening stopped (${e.error}).`;
     setStatus(msg);

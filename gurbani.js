@@ -8,10 +8,30 @@ const VOWEL_BASE = { 'ਆ': 'ਅ', 'ਐ': 'ਅ', 'ਔ': 'ਅ', 'ਇ': 'ੲ', '�
 const LETTER = /[ਅ-ਹੜੲੳ]/;
 const base = (c) => VOWEL_BASE[c] || c;
 
+// Devanagari letters that Gurmukhi lacks or that Gurbani spells another way. Everything else
+// in the Devanagari block sits exactly 0x100 below its Gurmukhi twin (क U+0915 → ਕ U+0A15).
+const DEVANAGARI_SPECIAL = {
+  'ष': 'ਖ', 'ऋ': 'ਰਿ', 'ृ': '੍ਰ', 'ऩ': 'ਨ', 'ऱ': 'ਰ', 'ऴ': 'ਲ',
+  'ऑ': 'ਓ', 'ऍ': 'ਏ', 'ॉ': 'ੋ', 'ॅ': 'ੇ', 'ऒ': 'ਓ', 'ऎ': 'ਏ', 'ॊ': 'ੋ', 'ॆ': 'ੇ', 'ॐ': ' ',
+};
+
+// Apple's speech recognition (every browser on iPhone) has no Punjabi, so there the app
+// listens in Hindi; this writes the Devanagari it hears in Gurmukhi.
+function devanagariToGurmukhi(text) {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0921\u0922]\u093C/g, 'ੜ') // ड़ and ढ़
+    .replace(/[\u0900-\u097F]/g, (c) => {
+      if (c in DEVANAGARI_SPECIAL) return DEVANAGARI_SPECIAL[c];
+      const g = String.fromCharCode(c.charCodeAt(0) + 0x100);
+      return /\p{Assigned}/u.test(g) ? g : '';
+    });
+}
+
 // Splits text into Gurmukhi words, dropping punctuation, numerals, ੴ and nuktas (ਸ਼ → ਸ),
 // since speech recognition and Gurbani spell those differently.
 function gurmukhiWords(text) {
-  return text
+  return devanagariToGurmukhi(text)
     .normalize('NFD')
     .replace(/਼/g, '')
     .replace(/[੦-੯ੴ]/g, ' ')

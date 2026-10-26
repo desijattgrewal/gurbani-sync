@@ -11,9 +11,15 @@ Text, transliteration and meanings come from [BaniDB](https://www.banidb.com/) (
 python3 -m http.server 8765 --directory gurbani-sync
 ```
 
-Then open http://localhost:8765 in **Google Chrome** or **Microsoft Edge**. Listening uses the
-browser's Punjabi speech recognition, which only those two have (the audio is sent to Google to be
-transcribed). Other browsers are told to switch.
+Then open http://localhost:8765 in **Google Chrome** or **Microsoft Edge** (best), or **Safari**.
+Listening uses the browser's speech recognition:
+
+- Chrome and Edge on a computer or Android recognise Punjabi (the audio is sent to Google).
+- Every browser on iPhone and iPad, and Safari on a Mac, uses Apple's recognition, which has no
+  Punjabi. There the app listens in Hindi and writes what it hears in Gurmukhi (the two scripts
+  match letter for letter). It is less accurate than Punjabi, and needs Dictation turned on
+  (Settings → General → Keyboard → Enable Dictation).
+- Other browsers (Firefox) are told to switch.
 
 ## Listening
 
