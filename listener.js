@@ -26,21 +26,7 @@ class LocalGurbaniListener {
       this.stream = stream;
       stage = 'audio';
       await resumed;
-      this.onStatus('Preparing listening on this device… The first use downloads a speech model.');
-      this.worker = new Worker('speech-worker.js?v=2', { type: 'module' });
-      this.worker.onerror = () => this.fail('Could not load on-device listening. Check your connection and try again.', session);
-      this.worker.onmessage = ({ data }) => {
-        if (!this.active || session !== this.session) return;
-        if (data.type === 'ready') this.capture(session);
-        if (data.type === 'progress') this.onStatus(data.text);
-        if (data.type === 'text') {
-          this.busy = false;
-          this.onStatus('Listening on this device…');
-          if (data.text.trim()) this.onText(data.text);
-        }
-        if (data.type === 'error') this.fail(data.message, session);
-      };
-      this.worker.postMessage({ type: 'load' });
+      await this.prepare(session);
     } catch (error) {
       let message = error.message;
       if (error.name === 'NotAllowedError' && stage === 'microphone') {
@@ -57,6 +43,24 @@ class LocalGurbaniListener {
       }
       this.fail(message, session);
     }
+  }
+
+  async prepare(session) {
+    this.onStatus('Preparing listening on this device… The first use downloads a speech model.');
+    this.worker = new Worker('speech-worker.js?v=2', { type: 'module' });
+    this.worker.onerror = () => this.fail('Could not load on-device listening. Check your connection and try again.', session);
+    this.worker.onmessage = ({ data }) => {
+      if (!this.active || session !== this.session) return;
+      if (data.type === 'ready') this.capture(session);
+      if (data.type === 'progress') this.onStatus(data.text);
+      if (data.type === 'text') {
+        this.busy = false;
+        this.onStatus('Listening on this device…');
+        if (data.text.trim()) this.onText(data.text);
+      }
+      if (data.type === 'error') this.fail(data.message, session);
+    };
+    this.worker.postMessage({ type: 'load' });
   }
 
   capture(session) {
@@ -85,13 +89,13 @@ class LocalGurbaniListener {
       if (Math.sqrt(energy / this.samples.length) < 0.003) return;
       const audio = resampleSpeech(this.samples, context.sampleRate);
       this.busy = true;
-      this.onStatus('Recognising Gurbani on this device…');
+      this.onStatus(this.cloud ? 'Recognising Gurbani…' : 'Recognising Gurbani on this device…');
       this.worker.postMessage({ type: 'transcribe', audio }, [audio.buffer]);
     };
     source.connect(processor);
     processor.connect(mute);
     mute.connect(context.destination);
-    this.onStatus('Listening on this device… Hold the microphone close to the paath.');
+    this.onStatus(this.cloud ? 'Listening… Audio clips are sent to OpenAI.' : 'Listening on this device… Hold the microphone close to the paath.');
   }
 
   fail(message, session) {
