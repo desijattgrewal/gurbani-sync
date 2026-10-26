@@ -158,6 +158,7 @@ async function search(text) {
 // moves to the next shabad when the reading does, until Stop is pressed.
 
 const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+let useLocalListening = store.get('paath:localListening') === true;
 // Tuned on test phrases: Gurbani with recognition errors scores 0.9+, everyday Punjabi
 // speech 0.65 or less.
 const MATCH_SCORE = 0.75;
@@ -191,6 +192,15 @@ const listening = {
 
 function listeningError(message) {
   stopListening();
+  setStatus(message);
+  slides.setStatus(message);
+}
+
+function retryWithLocalListening() {
+  useLocalListening = true;
+  store.set('paath:localListening', true);
+  stopListening();
+  const message = 'Tap Listen again to enable on-device listening. The browser speech service was unavailable.';
   setStatus(message);
   slides.setStatus(message);
 }
@@ -229,7 +239,7 @@ function startListening() {
     renderResults();
   }
   setStatus('');
-  if (!Recognition) { startLocalListening(); return; }
+  if (!Recognition || useLocalListening) { startLocalListening(); return; }
 
   try {
     const rec = listening.rec = new Recognition();
@@ -245,14 +255,14 @@ function startListening() {
         rec.onresult = null;
         rec.onerror = null;
         rec.abort();
-        startLocalListening();
+        retryWithLocalListening();
         return;
       }
       listeningError(MIC_ERRORS[e.error] || `Listening stopped (${e.error}).`);
     };
     rec.onend = () => {
       if (!listening.on || listening.rec !== rec) return;
-      try { rec.start(); } catch { startLocalListening(); }
+      try { rec.start(); } catch { retryWithLocalListening(); }
     };
     rec.start();
   } catch {
@@ -262,7 +272,7 @@ function startListening() {
       listening.rec.onerror = null;
       try { listening.rec.abort(); } catch { /* recognition never started */ }
     }
-    startLocalListening();
+    retryWithLocalListening();
   }
 }
 

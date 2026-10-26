@@ -7,6 +7,7 @@ class LocalGurbaniListener {
   async start() {
     this.active = true;
     const session = ++this.session;
+    let stage = 'microphone';
     try {
       if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
         throw new Error('Microphone access needs a secure HTTPS connection. Open https://gurbanisync.com and try again.');
@@ -14,7 +15,7 @@ class LocalGurbaniListener {
       // Create/resume during the tap so iOS permits audio processing.
       const Audio = window.AudioContext || window.webkitAudioContext;
       this.context = new Audio();
-      const resumed = this.context.resume();
+      const resumed = this.context.resume().catch(() => {});
       const stream = await navigator.mediaDevices.getUserMedia({ audio: {
         channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: true,
       } });
@@ -23,6 +24,7 @@ class LocalGurbaniListener {
         return;
       }
       this.stream = stream;
+      stage = 'audio';
       await resumed;
       this.onStatus('Preparing listening on this device… The first use downloads a speech model.');
       this.worker = new Worker('speech-worker.js?v=2', { type: 'module' });
@@ -40,9 +42,19 @@ class LocalGurbaniListener {
       };
       this.worker.postMessage({ type: 'load' });
     } catch (error) {
-      const message = error.name === 'NotAllowedError'
-        ? 'Microphone access was blocked. Allow microphone access for this website in your browser settings, then tap Listen again.'
-        : error.message;
+      let message = error.message;
+      if (error.name === 'NotAllowedError' && stage === 'microphone') {
+        let permission;
+        try { permission = await navigator.permissions?.query({ name: 'microphone' }); } catch { /* not supported on every browser */ }
+        const host = window.location?.hostname || 'this website';
+        message = permission?.state === 'denied'
+          ? `Microphone permission is denied for ${host}. Allow this exact website in browser settings, and allow the browser to use the microphone in your device's privacy settings. Then reload and tap Listen.`
+          : `The device refused microphone access for ${host}. Check the browser's microphone permission in your device settings, open this page directly (outside an embedded preview), then reload and tap Listen.`;
+      } else if (error.name === 'NotFoundError') {
+        message = 'No microphone is available. Connect or enable a microphone and tap Listen again.';
+      } else if (error.name === 'NotReadableError') {
+        message = 'The microphone could not be opened. Close other apps using it, check device microphone settings, and try again.';
+      }
       this.fail(message, session);
     }
   }

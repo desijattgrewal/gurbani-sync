@@ -84,7 +84,7 @@ test('permission denial restores idle controls with an actionable error', async 
   run('startListening()');
   await new Promise(setImmediate);
   assert.equal(run('listening.on'), false);
-  assert.match(element('#status').textContent, /Microphone access was blocked/);
+  assert.match(element('#status').textContent, /device refused microphone/);
   assert.equal(stats.closed, 1);
 });
 
@@ -94,6 +94,10 @@ test('built-in unsupported-language failure switches to local listening', async 
   const { run, stats } = setup({ recognition: Recognition });
   run('startListening()');
   rec.onerror({ error: 'language-not-supported' });
+  await new Promise(setImmediate);
+  assert.equal(stats.workers.length, 0);
+  assert.equal(run('listening.on'), false);
+  run('startListening()');
   await new Promise(setImmediate);
   assert.equal(stats.workers.length, 1);
   run('stopListening()');
