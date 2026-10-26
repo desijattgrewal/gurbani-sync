@@ -158,7 +158,6 @@ async function search(text) {
 // moves to the next shabad when the reading does, until Stop is pressed.
 
 const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-let useLocalListening = store.get('paath:localListening') === true;
 // Tuned on test phrases: Gurbani with recognition errors scores 0.9+, everyday Punjabi
 // speech 0.65 or less.
 const MATCH_SCORE = 0.75;
@@ -173,10 +172,10 @@ const FOLLOW_NEAR = 12;
 
 const MIC_ERRORS = {
   'not-allowed': 'Microphone access was blocked. Allow it in the browser’s address bar and try again.',
-  'service-not-allowed': 'This browser doesn’t allow speech recognition here. Try Chrome or Edge.',
+  'service-not-allowed': 'The browser’s speech-recognition service is unavailable here.',
   'audio-capture': 'No microphone was found.',
   network: 'Listening needs an internet connection.',
-  'language-not-supported': 'This browser can’t recognise Punjabi. Try Chrome or Edge.',
+  'language-not-supported': 'The browser’s speech-recognition service does not support Punjabi here.',
 };
 
 const listening = {
@@ -190,47 +189,24 @@ const listening = {
   applied: 0,   // newest check whose answer was used
 };
 
-function listeningError(message) {
-  stopListening();
-  setStatus(message);
-  slides.setStatus(message);
-}
-
-function retryWithLocalListening() {
-  useLocalListening = true;
-  store.set('paath:localListening', true);
-  stopListening();
-  const message = 'Tap Listen again to enable on-device listening. The browser speech service was unavailable.';
-  setStatus(message);
-  slides.setStatus(message);
-}
-
-function startLocalListening() {
-  listening.rec = new LocalGurbaniListener({
-    onText: (text) => {
-      if (!listening.on) return;
-      // Each overlapping audio window replaces the previous transcript.
-      listening.heard = gurmukhiWords(text).slice(-40);
-      listening.interim = [];
-      listening.text = listening.heard.slice(-10).join(' ');
-      $('#heard').textContent = text;
-      checkHeard();
-    },
-    onStatus: (message) => { setStatus(message); slides.setStatus(message); },
-    onError: listeningError,
-  });
-  listening.rec.start();
-}
-
 function startListening() {
-  if (!window.isSecureContext) {
-    $('#unsupported').hidden = false;
-    $('#unsupported').textContent = 'Listening needs a secure connection. Open https://gurbanisync.com. If a certificate warning appears, HTTPS must be fixed before the microphone can work.';
-    setStatus('Microphone access is unavailable on an insecure connection.');
-    return;
-  }
-  Object.assign(listening, { on: true, heard: [], interim: [], text: '', seq: listening.seq + 1 });
-  listening.applied = listening.seq;
+  const rec = new Recognition();
+  rec.lang = 'pa-IN';
+  rec.continuous = true;
+  rec.interimResults = true;
+  rec.onresult = onSpeech;
+  rec.onerror = (e) => {
+    if (e.error === 'no-speech' || e.error === 'aborted') return;
+    stopListening();
+    const msg = MIC_ERRORS[e.error] || `Listening stopped (${e.error}).`;
+    setStatus(msg);
+    slides.setStatus(msg);
+  };
+  // Browsers end recognition after a pause or a minute or so; start again until Stop.
+  rec.onend = () => { if (listening.on) rec.start(); };
+  rec.start();
+
+  Object.assign(listening, { on: true, rec, heard: [], interim: [], text: '' });
   $('#heard').textContent = '';
   showListenState();
   if (!isShowing()) {
@@ -239,54 +215,12 @@ function startListening() {
     renderResults();
   }
   setStatus('');
-  if (!Recognition || useLocalListening) { startLocalListening(); return; }
-
-  try {
-    const rec = listening.rec = new Recognition();
-    rec.lang = 'pa-IN';
-    rec.continuous = true;
-    rec.interimResults = true;
-    rec.onresult = onSpeech;
-    rec.onerror = (e) => {
-      if (listening.rec !== rec || !listening.on) return;
-      if (e.error === 'no-speech' || e.error === 'aborted') return;
-      if (['not-allowed', 'service-not-allowed', 'language-not-supported', 'network'].includes(e.error)) {
-        rec.onend = null;
-        rec.onresult = null;
-        rec.onerror = null;
-        rec.abort();
-        retryWithLocalListening();
-        return;
-      }
-      listeningError(MIC_ERRORS[e.error] || `Listening stopped (${e.error}).`);
-    };
-    rec.onend = () => {
-      if (!listening.on || listening.rec !== rec) return;
-      try { rec.start(); } catch { retryWithLocalListening(); }
-    };
-    rec.start();
-  } catch {
-    if (listening.rec) {
-      listening.rec.onend = null;
-      listening.rec.onresult = null;
-      listening.rec.onerror = null;
-      try { listening.rec.abort(); } catch { /* recognition never started */ }
-    }
-    retryWithLocalListening();
-  }
 }
 
 function stopListening() {
   if (!listening.on) return;
   listening.on = false;
-  if (listening.rec) {
-    listening.rec.onend = null;
-    listening.rec.onresult = null;
-    listening.rec.onerror = null;
-    try { listening.rec.stop(); } catch { /* already ended */ }
-    listening.rec = null;
-  }
-  listening.applied = ++listening.seq;
+  listening.rec?.stop();
   clearTimeout(listening.timer);
   listening.timer = null;
   $('#heard').textContent = '';
@@ -393,12 +327,15 @@ async function onListenButton() {
     : 'Couldn’t find that. Try again, closer to the sound.');
 }
 
-// Listening remains available when the browser has no built-in recognition API.
-$('#listenBtn').hidden = false;
-$('#listenHero').hidden = false;
-$('#listenBtn').addEventListener('click', onListenButton);
-$('#bigListenBtn').addEventListener('click', onListenButton);
-window.addEventListener('pagehide', stopListening);
+// Listening is the only way in, so browsers that can't listen get told where it works.
+if (Recognition) {
+  $('#listenBtn').hidden = false;
+  $('#listenHero').hidden = false;
+  $('#listenBtn').addEventListener('click', onListenButton);
+  $('#bigListenBtn').addEventListener('click', onListenButton);
+} else {
+  $('#unsupported').hidden = false;
+}
 
 // ---------- results ----------
 

@@ -45,66 +45,40 @@ function setup({ secure = true, recognition, getUserMedia } = {}) {
   return { context, stats, element, run: (code) => vm.runInContext(code, context) };
 }
 
-test('iPhone without speech API still gets microphone controls and starts local listener', async () => {
-  const { run, element, stats } = setup();
-  assert.equal(element('#listenHero').hidden, false);
-  assert.equal(element('#unsupported').hidden, true);
-  run('startListening()');
-  await new Promise(setImmediate);
-  assert.equal(stats.workers.length, 1);
-  assert.equal(stats.posted[0].type, 'load');
-  stats.workers[0].onmessage({ data: { type: 'ready' } });
-  assert.equal(run('listening.on'), true);
-  run('stopListening()');
-  assert.equal(stats.stopped, 1);
-  assert.equal(stats.closed, 1);
-  assert.equal(stats.terminated, 1);
-});
-
-test('insecure HTTP explains HTTPS instead of blaming the browser', () => {
-  const { run, element, stats } = setup({ secure: false });
-  run('startListening()');
-  assert.equal(run('listening.on'), false);
-  assert.match(element('#unsupported').textContent, /HTTPS/);
-  assert.equal(stats.workers.length, 0);
-});
-
-test('stop while permission is pending releases the late stream', async () => {
-  let resolve;
-  const { run, stats } = setup({ getUserMedia: () => new Promise((r) => { resolve = r; }) });
-  run('startListening(); stopListening()');
-  resolve({ getTracks: () => [{ stop() { stats.stopped++; } }] });
-  await new Promise(setImmediate);
-  assert.equal(stats.stopped, 1);
-  assert.equal(stats.workers.length, 0);
-});
-
-test('permission denial restores idle controls with an actionable error', async () => {
-  const { run, element, stats } = setup({ getUserMedia: async () => { const e = new Error(); e.name = 'NotAllowedError'; throw e; } });
-  run('startListening()');
-  await new Promise(setImmediate);
-  assert.equal(run('listening.on'), false);
-  assert.match(element('#status').textContent, /device refused microphone/);
-  assert.equal(stats.closed, 1);
-});
-
-test('built-in unsupported-language failure switches to local listening', async () => {
+test('restored listening uses the native Punjabi service without a local model', () => {
   let rec;
-  class Recognition { constructor() { rec = this; } start() {} abort() {} stop() {} }
+  class Recognition { constructor() { rec = this; } start() { this.started = true; } stop() { this.stopped = true; } }
   const { run, stats } = setup({ recognition: Recognition });
   run('startListening()');
-  rec.onerror({ error: 'language-not-supported' });
-  await new Promise(setImmediate);
+  assert.equal(rec.started, true);
+  assert.equal(rec.lang, 'pa-IN');
   assert.equal(stats.workers.length, 0);
-  assert.equal(run('listening.on'), false);
-  run('startListening()');
-  await new Promise(setImmediate);
-  assert.equal(stats.workers.length, 1);
   run('stopListening()');
+  assert.equal(rec.stopped, true);
 });
 
-test('audio is resampled to 16kHz without changing a constant signal', () => {
-  const { run } = setup();
-  assert.equal(run('resampleSpeech(new Float32Array(48000).fill(0.5), 48000).length'), 16000);
-  assert.equal(run('resampleSpeech(new Float32Array(44100).fill(0.5), 44100).every(x => x === 0.5)'), true);
+test('a service rejection never starts Whisper or asks for a paid service', () => {
+  let rec;
+  class Recognition { constructor() { rec = this; } start() {} stop() {} }
+  const { run, stats, element } = setup({ recognition: Recognition });
+  run('startListening()');
+  rec.onerror({ error: 'service-not-allowed' });
+  assert.equal(run('listening.on'), false);
+  assert.equal(stats.workers.length, 0);
+  assert.match(element('#status').textContent, /service is unavailable/);
+});
+
+test('the restored matcher still opens a shabad as a slideshow', async () => {
+  class Recognition { start() {} stop() {} }
+  const { run, context } = setup({ recognition: Recognition });
+  context.gurmukhiWords = text => text.split(' ');
+  context.makeQuery = text => ({ words: text.split(' ') });
+  run(`searchGurmukhi = async () => [{ score: 0.99, v: { shabadId: 42, verseId: 10, verse: { unicode: 'ਸਤਿ ਨਾਮੁ ਕਰਤਾ ਪੁਰਖੁ' } } }];
+    fetchShabad = async () => ({});
+    openResult = async (result, mode) => { globalThis.openedMatch = { result, mode }; };
+    startListening(); listening.text = 'ਸਤਿ ਨਾਮੁ ਕਰਤਾ ਪੁਰਖੁ';`);
+  await run('checkHeard()');
+  assert.equal(context.openedMatch.mode, 'slides');
+  assert.equal(context.openedMatch.result.shabadId, 42);
+  run('stopListening()');
 });
