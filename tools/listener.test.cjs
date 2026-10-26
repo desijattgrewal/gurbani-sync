@@ -108,3 +108,19 @@ test('audio is resampled to 16kHz without changing a constant signal', () => {
   assert.equal(run('resampleSpeech(new Float32Array(48000).fill(0.5), 48000).length'), 16000);
   assert.equal(run('resampleSpeech(new Float32Array(44100).fill(0.5), 44100).every(x => x === 0.5)'), true);
 });
+
+test('Gurmukhi transcript opens a matched shabad in slideshow mode', async () => {
+  const { run, context } = setup();
+  context.gurmukhiWords = (text) => text.split(' ');
+  context.makeQuery = (text) => ({ words: text.split(' ') });
+  run(`searchGurmukhi = async () => [{ score: 0.99, v: { shabadId: 42, verseId: 10, verse: { unicode: 'ਸਤਿ ਨਾਮੁ ਕਰਤਾ ਪੁਰਖੁ' } } }];
+    fetchShabad = async () => ({});
+    openResult = async (result, mode) => { globalThis.openedMatch = { result, mode }; };
+    startListening();`);
+  await new Promise(setImmediate);
+  run(`listening.rec.onText('ਸਤਿ ਨਾਮੁ ਕਰਤਾ ਪੁਰਖੁ')`);
+  await new Promise(setImmediate);
+  assert.equal(context.openedMatch.mode, 'slides');
+  assert.equal(context.openedMatch.result.shabadId, 42);
+  run('stopListening()');
+});

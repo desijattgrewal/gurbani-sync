@@ -54,6 +54,7 @@
           </span>
           <span id="bigListenLabel" class="big-mic-label">Tap to listen</span>
         </button>
+        <button type="button" id="cloudListenBtn" class="ghost-btn">Use cloud listening</button>
         <p id="heard" class="heard" aria-live="polite"></p>
         <p class="hero-sub">Hold your phone near the paath or kirtan. It hears the Gurbani, finds the shabad and follows along line by line.</p>
       </div>
@@ -97,10 +98,21 @@
     </section>
   </main>
 
+  <dialog id="cloudConsent" aria-labelledby="cloudTitle">
+    <h2 id="cloudTitle">Listen with cloud transcription</h2>
+    <p>While listening, eight-second microphone clips—including any nearby voices—are sent through this site to OpenAI for transcription. Stop ends recording and new uploads. This site does not save the clips; provider data policies apply. Transcription uses the site owner’s paid API account.</p>
+    <p>Recognition of sung Gurbani is still being evaluated and may miss words.</p>
+    <label for="cloudCode">Listening access code</label>
+    <input id="cloudCode" type="password" autocomplete="off" placeholder="Provided by the site owner">
+    <p id="cloudSetupStatus" role="status"></p>
+    <div class="cloud-actions"><button id="cloudCancel" type="button" class="ghost-btn">Cancel</button>
+    <button id="cloudAccept" type="button" class="primary-btn" disabled>Allow audio to OpenAI &amp; listen</button></div>
+  </dialog>
   <script src="gurbani.js"></script>
   <script src="banis.js"></script>
   <script src="present.js"></script>
-  <script src="listener.js?v=3"></script>
-  <script src="app.js?v=3"></script>
+  <script src="listener.js?v=4"></script>
+  <script src="cloud-listener.js?v=4"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>

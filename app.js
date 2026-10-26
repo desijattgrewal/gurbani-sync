@@ -158,6 +158,9 @@ async function search(text) {
 // moves to the next shabad when the reading does, until Stop is pressed.
 
 const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+let cloudConsentGiven = false;
+let cloudCode = '';
+let useCloudListening = false;
 let useLocalListening = store.get('paath:localListening') === true;
 // Tuned on test phrases: Gurbani with recognition errors scores 0.9+, everyday Punjabi
 // speech 0.65 or less.
@@ -206,15 +209,21 @@ function retryWithLocalListening() {
 }
 
 function startLocalListening() {
-  listening.rec = new LocalGurbaniListener({
+  const Listener = useCloudListening ? CloudGurbaniListener : LocalGurbaniListener;
+  listening.rec = new Listener({
+    code: cloudCode,
     onText: (text) => {
       if (!listening.on) return;
+      if (gurmukhiWords(text).length < 2) {
+        setStatus('No clear Gurbani words yet. Move closer to the voice, or try cloud listening.');
+        return;
+      }
       // Each overlapping audio window replaces the previous transcript.
       listening.heard = gurmukhiWords(text).slice(-40);
       listening.interim = [];
       listening.text = listening.heard.slice(-10).join(' ');
       $('#heard').textContent = text;
-      checkHeard();
+      checkHeard().catch(() => setStatus('Could not contact BaniDB. Check the connection and try again.'));
     },
     onStatus: (message) => { setStatus(message); slides.setStatus(message); },
     onError: listeningError,
@@ -223,6 +232,7 @@ function startLocalListening() {
 }
 
 function startListening() {
+  if (useCloudListening && !cloudConsentGiven) { openCloudConsent(); return; }
   if (!window.isSecureContext) {
     $('#unsupported').hidden = false;
     $('#unsupported').textContent = 'Listening needs a secure connection. Open https://gurbanisync.com. If a certificate warning appears, HTTPS must be fixed before the microphone can work.';
@@ -239,7 +249,7 @@ function startListening() {
     renderResults();
   }
   setStatus('');
-  if (!Recognition || useLocalListening) { startLocalListening(); return; }
+  if (useCloudListening || !Recognition || useLocalListening) { startLocalListening(); return; }
 
   try {
     const rec = listening.rec = new Recognition();
@@ -359,6 +369,7 @@ async function checkHeard() {
   // as soon as one check doesn't fit the open shabad.
   const needed = words.length < 4 ? MATCH_SCORE_3_WORDS : showing && !sameShabad ? SWITCH_SCORE : MATCH_SCORE;
   if (showing && !sameShabad && words.length < 4) return;
+  if (!showing && !(top?.score >= needed)) setStatus('Words received; no confident shabad match yet. Keep listening.');
   if (top?.score >= needed) {
     const v = top.v;
     if (sameShabad) {
@@ -614,3 +625,37 @@ new ResizeObserver(([entry]) => {
   document.documentElement.style.setProperty('--header-h', `${entry.target.offsetHeight}px`);
 }).observe($('.topbar'));
 
+
+// Configuration is checked before recording. Consent happens before any audio upload.
+let cloudConfigSeq = 0;
+async function openCloudConsent() {
+  stopListening();
+  const seq = ++cloudConfigSeq;
+  $('#cloudConsent').showModal();
+  $('#cloudSetupStatus').textContent = 'Checking cloud listening availability…';
+  $('#cloudAccept').disabled = true;
+  try {
+    const response = await fetch('/.netlify/functions/transcribe', { cache: 'no-store', signal: AbortSignal.timeout(10000) });
+    const config = await response.json();
+    if (seq !== cloudConfigSeq || !$('#cloudConsent').open) return;
+    if (!response.ok || !config.configured) throw new Error('not configured');
+    $('#cloudSetupStatus').textContent = 'Ready. Enter your listening code to continue.';
+    $('#cloudAccept').disabled = false;
+  } catch {
+    if (seq === cloudConfigSeq) $('#cloudSetupStatus').textContent = 'Cloud listening is not enabled yet. The site owner must configure the transcription service.';
+  }
+}
+$('#cloudListenBtn').addEventListener('click', openCloudConsent);
+$('#cloudCancel').addEventListener('click', () => { ++cloudConfigSeq; $('#cloudCode').value = ''; $('#cloudConsent').close(); });
+$('#cloudConsent').addEventListener('cancel', () => { ++cloudConfigSeq; $('#cloudCode').value = ''; });
+$('#cloudAccept').addEventListener('click', () => {
+  if ($('#cloudAccept').disabled) return;
+  const code = $('#cloudCode').value.trim();
+  if (!code) { $('#cloudSetupStatus').textContent = 'Enter the listening access code first.'; return; }
+  cloudCode = code;
+  $('#cloudCode').value = '';
+  cloudConsentGiven = true;
+  useCloudListening = true;
+  $('#cloudConsent').close();
+  startListening(); // Called directly from the user's tap for iOS microphone permission.
+});

@@ -527,3 +527,11 @@ body:not(.compact) .status.is-listening { display: none; }
   .reader-head .ghost-btn, .reader-head .primary-btn { padding: 9px 11px; }
   .line { padding: 14px 10px; }
 }
+
+/* Cloud listening consent is separate from microphone permission. */
+#cloudConsent { max-width: min(520px, 92vw); max-height: 85vh; overflow: auto; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 20px; padding: 24px; }
+#cloudConsent::backdrop { background: rgb(0 0 0 / .6); }
+#cloudConsent p { line-height: 1.6; }
+#cloudCode { display: block; width: 100%; margin-top: 8px; font-size: 16px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); }
+.cloud-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+button:disabled { opacity: .5; cursor: default; }
