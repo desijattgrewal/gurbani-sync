@@ -11,13 +11,9 @@ Text, transliteration and meanings come from [BaniDB](https://www.banidb.com/) (
 python3 -m http.server 8765 --directory gurbani-sync
 ```
 
-Then open http://localhost:8765. Production sites must use **HTTPS** for microphone access.
-The app uses built-in Punjabi recognition when available. Otherwise it downloads a quantized
-Whisper Tiny model and transcribes audio on the device in a worker, including on iPhone browsers.
-The first use needs an internet connection to download the runtime/model from jsDelivr and
-Hugging Face. Fallback audio stays on the device. Accuracy and processing speed vary, especially
-with music; recognition happens in overlapping eight-second windows rather than instantly.
-There is no search box or API key to configure.
+Then open http://localhost:8765 in **Google Chrome** or **Microsoft Edge**. Listening uses the
+browser's Punjabi speech recognition, which only those two have (the audio is sent to Google to be
+transcribed). Other browsers are told to switch.
 
 ## Listening
 

@@ -172,10 +172,10 @@ const FOLLOW_NEAR = 12;
 
 const MIC_ERRORS = {
   'not-allowed': 'Microphone access was blocked. Allow it in the browser’s address bar and try again.',
-  'service-not-allowed': 'The browser’s speech-recognition service is unavailable here.',
+  'service-not-allowed': 'This browser doesn’t allow speech recognition here. Try Chrome or Edge.',
   'audio-capture': 'No microphone was found.',
   network: 'Listening needs an internet connection.',
-  'language-not-supported': 'The browser’s speech-recognition service does not support Punjabi here.',
+  'language-not-supported': 'This browser can’t recognise Punjabi. Try Chrome or Edge.',
 };
 
 const listening = {
