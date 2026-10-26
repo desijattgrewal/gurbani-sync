@@ -182,6 +182,8 @@ const MIC_ERRORS = {
   'service-not-allowed': IS_APPLE_SPEECH
     ? 'Speech recognition is off on this device. Turn on Dictation (Settings → General → Keyboard → Enable Dictation), then try again.'
     : 'This browser doesn’t allow speech recognition here. Try Chrome or Edge.',
+  // Apple's recognizer has no Hindi on this device: Hindi dictation comes with the Hindi keyboard.
+  'language-unavailable': 'This iPhone can’t recognise Hindi speech yet, which Gurbani Sync uses on iPhone. Add the Hindi keyboard (Settings → General → Keyboard → Keyboards → Add New Keyboard → Hindi), check Enable Dictation is on, then try again.',
   'audio-capture': 'No microphone was found.',
   network: 'Listening needs an internet connection.',
   'language-not-supported': 'This browser can’t recognise Punjabi. Try Chrome or Edge.',
@@ -215,7 +217,10 @@ function startListening(langIndex = 0) {
       return;
     }
     stopListening();
-    const msg = MIC_ERRORS[e.error] || `Listening stopped (${e.error}).`;
+    // Safari gives the same error for "speech recognition not allowed" and "no recognizer for
+    // this language"; its message tells them apart.
+    const key = IS_APPLE_SPEECH && /not available/i.test(e.message || '') ? 'language-unavailable' : e.error;
+    const msg = MIC_ERRORS[key] || `Listening stopped (${e.error}${e.message ? `: ${e.message}` : ''}).`;
     setStatus(msg);
     slides.setStatus(msg);
   };

@@ -17,8 +17,8 @@ Listening uses the browser's speech recognition:
 - Chrome and Edge on a computer or Android recognise Punjabi (the audio is sent to Google).
 - Every browser on iPhone and iPad, and Safari on a Mac, uses Apple's recognition, which has no
   Punjabi. There the app listens in Hindi and writes what it hears in Gurmukhi (the two scripts
-  match letter for letter). It is less accurate than Punjabi, and needs Dictation turned on
-  (Settings → General → Keyboard → Enable Dictation).
+  match letter for letter). It is less accurate than Punjabi. The iPhone needs Dictation on and the
+  Hindi keyboard added, which is what turns on Hindi dictation (Settings → General → Keyboard).
 - Other browsers (Firefox) are told to switch.
 
 ## Listening
