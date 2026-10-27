@@ -169,6 +169,9 @@ const SEARCH_WORDS = 6;
 // A paath is read in order, so ordinary moves stay within this many lines of the current
 // one; jumping further needs a near-certain match.
 const FOLLOW_NEAR = 12;
+// How long a bani opened by listening waits, with nothing fitting it, before another
+// shabad may take its place.
+const PAATH_PATIENCE = 6000;
 
 // Every browser on iPhone and iPad, and Safari on a Mac, uses Apple's speech recognition,
 // which has no Punjabi. There the app listens in Hindi and writes what it hears in Gurmukhi.
@@ -199,6 +202,7 @@ const listening = {
   seq: 0,       // checks started
   applied: 0,   // newest check whose answer was used
   pendingLine: null, // line the last check wanted to move to, waiting for a second check
+  pendingShabad: null, // likewise for a different shabad
 };
 
 function startListening(langIndex = 0) {
@@ -292,6 +296,8 @@ async function checkHeard() {
     const isPaath = view.result.kind === 'bani';
     const found = followLine(makeQuery(text), view.lines, view.current, { near: isPaath ? FOLLOW_NEAR : Infinity });
     if (found) {
+      view.lostSince = null;
+      listening.pendingShabad = null;
       // On to the next line straight away (followLine already waits for 3 of its words).
       // Any other move, a jump ahead or back, needs two checks in a row to agree, so one
       // misheard moment can't move the line on screen.
@@ -300,8 +306,13 @@ async function checkHeard() {
       else listening.pendingLine = found.i;
       return;
     }
-    // A paath stays open even if the reading pauses or wanders: it's the bani they chose.
-    if (isPaath) return;
+    // A paath stays open while the reading pauses or wanders. One chosen from the results
+    // stays for good; one that listening opened gives way only after PAATH_PATIENCE ms in
+    // which nothing fits it (kirtan may sing one pauri of Anand Sahib, then move on).
+    if (isPaath) {
+      view.lostSince ??= Date.now();
+      if (!view.result.auto || Date.now() - view.lostSince < PAATH_PATIENCE) return;
+    }
   }
 
   // Otherwise find the shabad being read, anywhere in BaniDB, and open it. Checks run side
@@ -316,7 +327,10 @@ async function checkHeard() {
 
   const top = matches[0];
   if (top && top.score >= 0.6) fetchShabad(top.v.shabadId).catch(() => {}); // likely next: start loading it
-  const sameShabad = showing && state.view?.result.shabadId === top?.v.shabadId;
+  const onScreen = state.view;
+  const sameShabad = showing && !!top && (onScreen.result.kind === 'bani'
+    ? onScreen.lines.some((l) => l.verseId === top.v.verseId)
+    : onScreen.result.shabadId === top.v.shabadId);
   // Leaving the shabad on screen for another needs a little more certainty, since this runs
   // as soon as one check doesn't fit the open shabad.
   const needed = words.length < 4 ? MATCH_SCORE_3_WORDS : showing && !sameShabad ? SWITCH_SCORE : MATCH_SCORE;
@@ -324,12 +338,23 @@ async function checkHeard() {
   if (top?.score >= needed) {
     const v = top.v;
     if (sameShabad) {
-      moveTo(state.view.lines.findIndex((l) => l.verseId === v.verseId));
-    } else {
-      const result = { kind: 'shabad', shabadId: v.shabadId, verseId: v.verseId, gm: v.verse.unicode, meta: verseMeta(v) };
-      // Keep showing it the way it's being shown now; from the results, use Open as.
-      await openResult(result, slides.isOpen ? 'slides' : showing ? 'full' : state.mode);
+      moveTo(onScreen.lines.findIndex((l) => l.verseId === v.verseId));
+      return;
     }
+    // Leaving what's on screen needs two checks in a row to agree on where to go.
+    if (showing && listening.pendingShabad !== v.shabadId) {
+      listening.pendingShabad = v.shabadId;
+      return;
+    }
+    listening.pendingShabad = null;
+    // Part of one of the Panj Baniyan: open the whole bani, as a paath, at this line.
+    const bani = await baniContaining(v.verseId);
+    if (!listening.on) return;
+    const result = bani
+      ? { kind: 'bani', id: bani.id, gm: bani.gm, en: bani.en, verseId: v.verseId, auto: true }
+      : { kind: 'shabad', shabadId: v.shabadId, verseId: v.verseId, gm: v.verse.unicode, meta: verseMeta(v) };
+    // Keep showing it the way it's being shown now; from the results, use Open as.
+    await openResult(result, slides.isOpen ? 'slides' : showing ? 'full' : state.mode);
   }
 }
 
@@ -428,7 +453,10 @@ function showResults() {
 async function loadView(result) {
   if (result.kind === 'bani') {
     const bani = await fetchBani(result.id);
-    return { result, title: bani.name, meta: result.en, lines: linesFor(bani, $('#optVersion').value), current: 0 };
+    const lines = linesFor(bani, $('#optVersion').value);
+    // Opened by listening: start at the line heard.
+    const current = Math.max(0, lines.findIndex((l) => l.verseId === result.verseId));
+    return { result, title: bani.name, meta: result.en, lines, current };
   }
   const data = await fetchShabad(result.shabadId);
   const lines = data.verses.map((v) => ({

@@ -65,6 +65,21 @@ function fetchBani(id) {
   return baniCache.get(id);
 }
 
+// Which of the Panj Baniyan a line is part of, by BaniDB verse ID, or null. BaniDB files a
+// bani such as Japji Sahib as many shabads (one per pauri); listening opens the whole bani
+// instead, so it follows the paath without searching again at every pauri.
+let baniIndex = null;
+async function baniContaining(verseId) {
+  baniIndex ??= Promise.all(PANJ_BANIYAN.map(async (b) => [b, await fetchBani(b.id)]))
+    .then((all) => {
+      const index = new Map();
+      for (const [b, bani] of all) for (const l of bani.lines) if (!index.has(l.verseId)) index.set(l.verseId, b);
+      return index;
+    })
+    .catch(() => new Map());
+  return (await baniIndex).get(verseId) || null;
+}
+
 // The lines read in one version (Chaupai Sahib differs the most).
 const linesFor = (bani, version) => bani.lines.filter((l) => !l.v || l.v.includes(version));
 
