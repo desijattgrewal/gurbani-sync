@@ -111,6 +111,8 @@ function scoreLine(query, line, { latestOnly = false } = {}) {
 // Tuned on test phrases: Gurbani with recognition errors scores 0.9+, everyday Punjabi
 // speech 0.65 or less.
 const FOLLOW_SCORE = 0.65;
+// Words of the next line heard before moving on to it.
+const OPENING_WORDS = 3;
 
 // Where the reading is now, given what was just heard, the lines being read (each with .gm)
 // and the current line. Returns { i, score } or null when nothing fits well enough.
@@ -120,12 +122,13 @@ const FOLLOW_SCORE = 0.65;
 function followLine(query, lines, current, { near = Infinity } = {}) {
   if (!query.words || query.words.length < 2) return null;
 
-  // Fast path: the two newest words open the next line and fit it better than anything in
-  // the current line. Moves on after two words instead of waiting for four.
+  // Fast path: the newest words open the next line and fit it better than anything in the
+  // current line. Three words, not two: many lines start alike (ਸੁਣਿਐ…, ਮੰਨੈ…) and the last
+  // word heard is often only half heard, so two moved on as soon as a line began.
   const next = lines[current + 1];
   if (current >= 0 && next) {
-    const heard = query.words.slice(-2).map(skeleton).join('');
-    const opening = gurmukhiWords(next.gm).slice(0, 2).map(skeleton).join('');
+    const heard = query.words.slice(-OPENING_WORDS).map(skeleton).join('');
+    const opening = gurmukhiWords(next.gm).slice(0, OPENING_WORDS).map(skeleton).join('');
     const here = gurmukhiWords(lines[current].gm).map(skeleton).join('');
     const fitsNext = align(heard, opening);
     if (fitsNext >= 0.8 && fitsNext > align(heard, here)) return { i: current + 1, score: fitsNext };

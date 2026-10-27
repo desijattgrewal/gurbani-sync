@@ -198,6 +198,7 @@ const listening = {
   timer: null,  // next check
   seq: 0,       // checks started
   applied: 0,   // newest check whose answer was used
+  pendingLine: null, // line the last check wanted to move to, waiting for a second check
 };
 
 function startListening(langIndex = 0) {
@@ -291,7 +292,12 @@ async function checkHeard() {
     const isPaath = view.result.kind === 'bani';
     const found = followLine(makeQuery(text), view.lines, view.current, { near: isPaath ? FOLLOW_NEAR : Infinity });
     if (found) {
-      moveTo(found.i);
+      // On to the next line straight away (followLine already waits for 3 of its words).
+      // Any other move, a jump ahead or back, needs two checks in a row to agree, so one
+      // misheard moment can't move the line on screen.
+      if (found.i === view.current) listening.pendingLine = null;
+      else if (found.i === view.current + 1 || listening.pendingLine === found.i) { listening.pendingLine = null; moveTo(found.i); }
+      else listening.pendingLine = found.i;
       return;
     }
     // A paath stays open even if the reading pauses or wanders: it's the bani they chose.
