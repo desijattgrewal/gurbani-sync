@@ -105,6 +105,8 @@ select {
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  /* Phones drawn edge to edge (the iPhone app): clear the clock and camera. */
+  padding-top: calc(12px + env(safe-area-inset-top));
 }
 .brand { display: flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; }
 .brand-mark { font-family: var(--gurbani); font-size: 26px; line-height: 1; color: var(--accent); }
@@ -204,6 +206,8 @@ select {
   color: var(--text-2);
 }
 .heard:empty { display: none; }
+/* A note about listening ("Hearing Gurbani…") rather than words heard. */
+.heard.is-status { font-family: var(--ui); font-size: 16px; color: var(--muted); }
 .unsupported { margin-top: 28px; }
 .unsupported[hidden] { display: none; }
 
@@ -387,6 +391,10 @@ body:not(.show-pu) .pu { display: none; }
 }
 .slideshow[hidden] { display: none; }
 body.slideshow-open { overflow: hidden; }
+/* Edge to edge on phones: keep controls clear of the camera, rounded corners and home bar. */
+.slideshow {
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
 
 .ss-top, .ss-bottom {
   display: flex;
@@ -399,9 +407,15 @@ body.slideshow-open { overflow: hidden; }
   font-size: 14px;
   transition: opacity 0.4s ease;
 }
+.ss-meta { color: #c9d1d9; font-size: 16px; font-weight: 500; }
 .ss-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .ss-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   min-width: 40px;
+  min-height: 36px;
   padding: 7px 14px;
   border: 1px solid rgb(255 255 255 / 0.12);
   border-radius: 999px;
@@ -413,8 +427,21 @@ body.slideshow-open { overflow: hidden; }
 .ss-actions button:hover { background: rgb(255 255 255 / 0.1); border-color: rgb(255 255 255 / 0.25); }
 .ss-actions button.on { border-color: #f0a443; color: #f5b864; }
 .ss-actions button[hidden] { display: none; }
+.ss-ico { display: inline-flex; }
+/* Previous and next read clearly as arrows alone. */
+.ss-actions [data-act="prev"] .ss-label, .ss-actions [data-act="next"] .ss-label { display: none; }
+.ss-actions [data-act="prev"], .ss-actions [data-act="next"] { padding: 7px 10px; }
 .slideshow.idle { cursor: none; }
 .slideshow.idle .ss-top { opacity: 0; }
+.slideshow.idle .ss-top * { pointer-events: none; }
+/* Phones: the title on its own line, then one row of round icon buttons. */
+@media (max-width: 640px) {
+  .ss-top { padding: 12px 16px; }
+  .ss-meta { flex-basis: 100%; }
+  .ss-actions { flex-wrap: nowrap; gap: 8px; }
+  .ss-actions button { width: 42px; height: 42px; padding: 0; }
+  .ss-actions .ss-label { display: none; }
+}
 
 .ss-stage { position: relative; flex: 1; min-height: 0; }
 .ss-slide {
@@ -494,6 +521,7 @@ body.slideshow-open { overflow: hidden; }
 /* White background: the same slideshow, inverted, for bright rooms or printing on screen. */
 .slideshow.light { background: radial-gradient(ellipse at 50% 40%, #ffffff 0%, #f1eee8 75%); color: #1b2230; }
 .slideshow.light .ss-top, .slideshow.light .ss-bottom { color: #6e7685; }
+.slideshow.light .ss-meta { color: #3d4655; }
 .slideshow.light .ss-actions button { background: rgb(27 34 48 / 0.04); border-color: rgb(27 34 48 / 0.14); color: #2b3342; }
 .slideshow.light .ss-actions button:hover { background: rgb(27 34 48 / 0.08); border-color: rgb(27 34 48 / 0.28); }
 .slideshow.light .ss-actions button.on { border-color: #d9831a; color: #b0680d; }

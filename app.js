@@ -264,7 +264,7 @@ function showListenState() {
   $('#listenLabel').textContent = on ? 'Stop' : 'Listen';
   $('#status').classList.toggle('is-listening', on);
   updateLayout();
-  slidesMic.textContent = on ? 'Stop listening' : 'Listen';
+  slides.setActionLabel(slidesMic, on ? 'Stop listening' : 'Listen');
   slidesMic.classList.toggle('on', on);
   slides.setStatus(on ? 'Listening' : '');
 }

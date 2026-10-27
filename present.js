@@ -18,6 +18,21 @@
 
 const UPCOMING_LINES = 2;
 
+// Toolbar icons (24×24, drawn in the button's text colour). On a phone only the icons show,
+// so the toolbar fits on one row; wider screens also show the labels.
+const svg = (d) => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const ICONS = {
+  prev: svg('<path d="M15 18l-6-6 6-6"/>'),
+  next: svg('<path d="M9 18l6-6-6-6"/>'),
+  upcoming: svg('<path d="M4 7h16M4 12h10M4 17h6"/>'),
+  theme: svg('<circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/>'),
+  fullscreen: svg('<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>'),
+  close: svg('<path d="M6 6l12 12M18 6L6 18"/>'),
+  mic: svg('<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>'),
+};
+const actionButton = (act, icon, label, hint) =>
+  `<button data-act="${act}" aria-label="${label}" title="${hint || label}"><span class="ss-ico">${icon}</span><span class="ss-label">${label}</span></button>`;
+
 function createSlideshow({ getLine, count, placeholder, onNavigate, upcoming = 0, allowUpcoming = () => true, storageKey = 'slides', onClose, tapToAdvance = false, brand = '', credit = null }) {
   const upcomingPref = `paath:upcoming:${storageKey}`;
   try {
@@ -34,12 +49,12 @@ function createSlideshow({ getLine, count, placeholder, onNavigate, upcoming = 0
     <div class="ss-top">
       <span class="ss-meta"></span>
       <div class="ss-actions">
-        <button data-act="prev" aria-label="Previous line" title="Previous line (←)">‹</button>
-        <button data-act="next" aria-label="Next line" title="Next line (→)">›</button>
-        <button data-act="upcoming" title="Show the next lines under the current one (N)">Next lines</button>
-        <button data-act="theme" title="Black or white background (B)"></button>
-        <button data-act="fullscreen" title="Full screen (F)">Full screen</button>
-        <button data-act="close" title="Exit (Esc)">Exit</button>
+        ${actionButton('prev', ICONS.prev, 'Previous line', 'Previous line (←)')}
+        ${actionButton('next', ICONS.next, 'Next line', 'Next line (→)')}
+        ${actionButton('upcoming', ICONS.upcoming, 'Next lines', 'Show the next lines under the current one (N)')}
+        ${actionButton('theme', ICONS.theme, 'White background', 'Black or white background (B)')}
+        ${actionButton('fullscreen', ICONS.fullscreen, 'Full screen', 'Full screen (F)')}
+        ${actionButton('close', ICONS.close, 'Exit', 'Exit (Esc)')}
       </div>
     </div>
     <div class="ss-stage" aria-live="polite"></div>
@@ -75,6 +90,12 @@ function createSlideshow({ getLine, count, placeholder, onNavigate, upcoming = 0
 
   const stage = root.querySelector('.ss-stage');
   const actions = root.querySelector('.ss-actions');
+  // Phones (and the iPhone app) can't go full screen this way.
+  actions.querySelector('[data-act="fullscreen"]').hidden = !document.fullscreenEnabled;
+  const setLabel = (btn, label) => {
+    btn.querySelector('.ss-label').textContent = label;
+    btn.setAttribute('aria-label', label);
+  };
   let shown = null;    // index on screen, -1 for the placeholder
   let shownKey = null; // what's on screen, so a new shabad or bani redraws even at the same index
   let idleTimer = null;
@@ -169,7 +190,7 @@ function createSlideshow({ getLine, count, placeholder, onNavigate, upcoming = 0
   const themeBtn = actions.querySelector('[data-act="theme"]');
   function setTheme(light) {
     root.classList.toggle('light', light);
-    themeBtn.textContent = light ? '◐ Black background' : '◑ White background';
+    setLabel(themeBtn, light ? 'Black background' : 'White background');
     try { localStorage.setItem('paath:slidesTheme', light ? 'light' : 'dark'); } catch { /* not remembered */ }
   }
   let savedTheme = null;
@@ -211,6 +232,8 @@ function createSlideshow({ getLine, count, placeholder, onNavigate, upcoming = 0
     if (act === 'close') close();
   });
   root.addEventListener('mousemove', wake);
+  // Touch screens have no mouse to move: a tap brings the controls back.
+  root.addEventListener('touchstart', wake, { passive: true });
   if (tapToAdvance) {
     stage.style.cursor = 'pointer';
     stage.addEventListener('click', () => step(1));
@@ -243,13 +266,16 @@ function createSlideshow({ getLine, count, placeholder, onNavigate, upcoming = 0
     refresh: () => show(shown ?? -1, { force: true }),
     setMeta: (text) => { root.querySelector('.ss-meta').textContent = text || ''; },
     setStatus: (text) => { root.querySelector('.ss-status').textContent = text || ''; },
-    // Lets a page add its own control, e.g. the microphone toggle.
-    addAction(label, onClick) {
-      const btn = document.createElement('button');
-      btn.textContent = label;
+    // Lets a page add its own control, e.g. the microphone toggle (icon: a key of ICONS).
+    addAction(label, onClick, icon = 'mic') {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = actionButton('', ICONS[icon] || '', label);
+      const btn = tmp.firstElementChild;
+      btn.removeAttribute('data-act');
       btn.addEventListener('click', onClick);
       actions.prepend(btn);
       return btn;
     },
+    setActionLabel: setLabel,
   };
 }
