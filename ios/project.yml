@@ -1,0 +1,24 @@
+name: GurbaniSync
+options:
+  bundleIdPrefix: com.gurbanisync
+  deploymentTarget:
+    iOS: '16.0'
+targets:
+  GurbaniSync:
+    type: application
+    platform: iOS
+    sources:
+      - GurbaniSync
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.gurbanisync.app
+        PRODUCT_NAME: GurbaniSync
+        SWIFT_VERSION: '5.0'
+        TARGETED_DEVICE_FAMILY: '1,2'
+        CODE_SIGN_STYLE: Automatic
+        MARKETING_VERSION: '1.0'
+        CURRENT_PROJECT_VERSION: '1'
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: GurbaniSync/Info.plist
+    scheme:
+      gatherCoverageData: false
