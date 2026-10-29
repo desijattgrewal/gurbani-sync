@@ -114,6 +114,41 @@ const FOLLOW_SCORE = 0.65;
 // Words of the next line heard before moving on to it.
 const OPENING_WORDS = 3;
 
+// The running text, for when single lines don't match (a phone across the room mishears too
+// much): the last 8 heard words found in the next dozen lines read as one passage, like
+// following along in a pothi. Fits from 0 to 1; 0.5 and above is the reader's place.
+const RUN_SCORE = 0.5;
+
+function followRunning(words, lines, current, { ahead = 12, nWords = 8 } = {}) {
+  const from = Math.max(0, current - 1), to = Math.min(lines.length, current + ahead + 1);
+  const target = [], lineOf = [], wordOf = [], lineWords = {};
+  for (let i = from; i < to; i++) {
+    const ws = gurmukhiWords(lines[i].gm);
+    lineWords[i] = ws.length;
+    ws.forEach((w, wi) => { for (const c of skeleton(w)) { target.push(c); lineOf.push(i); wordOf.push(wi); } });
+  }
+  const q = [...words.slice(-nWords).map(skeleton).join('')];
+  if (q.length < 6 || !target.length) return null;
+  // Local alignment that ends at the last letter heard: where in the passage the reader is.
+  const MATCH = 2, MISMATCH = -1, GAP = -1;
+  let prev = new Array(target.length + 1).fill(0);
+  for (let i = 1; i <= q.length; i++) {
+    const cur = [0];
+    for (let j = 1; j <= target.length; j++) {
+      cur.push(Math.max(0, prev[j - 1] + (q[i - 1] === target[j - 1] ? MATCH : MISMATCH), prev[j] + GAP, cur[j - 1] + GAP));
+    }
+    prev = cur;
+  }
+  let best = 0, end = 0;
+  for (let j = 1; j <= target.length; j++) if (prev[j] > best) { best = prev[j]; end = j; }
+  const score = best / (MATCH * q.length);
+  if (!end || score < RUN_SCORE) return null;
+  let i = lineOf[end - 1];
+  // Into a later line by fewer than OPENING_WORDS words (or most of a short line): not yet.
+  if (i > current && wordOf[end - 1] + 1 < Math.min(OPENING_WORDS, Math.max(1, lineWords[i] - 1))) i -= 1;
+  return i >= current ? { i, score } : null; // forward only: a reading doesn't run backwards
+}
+
 // Where the reading is now, given what was just heard, the lines being read (each with .gm)
 // and the current line. Returns { i, score } or null when nothing fits well enough.
 //

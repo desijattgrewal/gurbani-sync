@@ -19,25 +19,45 @@ function setStatus(msg) {
 
 // ---------- BaniDB ----------
 
+// Answers are kept for reuse, but only the most recent ones: listening searches several times
+// a second, and keeping every answer filled the phone's memory within minutes until iOS
+// closed the page.
+function remember(cache, key, value, limit) {
+  cache.set(key, value);
+  if (cache.size > limit) cache.delete(cache.keys().next().value); // the oldest
+  return value;
+}
+function recall(cache, key) {
+  const value = cache.get(key);
+  if (value !== undefined) { cache.delete(key); cache.set(key, value); } // now the newest
+  return value;
+}
+
 const searchCache = new Map();
 function searchBaniDB(query, type, source = 'all', results = 100) {
   const key = `${type}:${source}:${results}:${query}`;
-  if (!searchCache.has(key)) {
-    const url = `${API}/search/${encodeURIComponent(query)}?searchtype=${type}&source=${source}&results=${results}`;
-    searchCache.set(key, fetch(url).then((r) => r.json()).then((d) => d.verses || []).catch(() => []));
-  }
-  return searchCache.get(key);
+  const kept = recall(searchCache, key);
+  if (kept) return kept;
+  const url = `${API}/search/${encodeURIComponent(query)}?searchtype=${type}&source=${source}&results=${results}`;
+  const answer = fetch(url).then((r) => {
+    if (!r.ok) throw new Error(`BaniDB returned ${r.status}`);
+    return r.json();
+  }).then((d) => d.verses || []).catch(() => {
+    searchCache.delete(key); // a failed search is tried again next time, not remembered as "no match"
+    return [];
+  });
+  return remember(searchCache, key, answer, 300);
 }
 
 const shabadCache = new Map();
 function fetchShabad(id) {
-  if (!shabadCache.has(id)) {
-    shabadCache.set(id, fetch(`${API}/shabads/${id}`).then((r) => {
-      if (!r.ok) throw new Error(`BaniDB returned ${r.status}`);
-      return r.json();
-    }).catch((err) => { shabadCache.delete(id); throw err; }));
-  }
-  return shabadCache.get(id);
+  const kept = recall(shabadCache, id);
+  if (kept) return kept;
+  const shabad = fetch(`${API}/shabads/${id}`).then((r) => {
+    if (!r.ok) throw new Error(`BaniDB returned ${r.status}`);
+    return r.json();
+  }).catch((err) => { shabadCache.delete(id); throw err; });
+  return remember(shabadCache, id, shabad, 50);
 }
 
 const verseMeta = (v) => [
@@ -294,7 +314,11 @@ async function checkHeard() {
   // Following what's on screen: move to the line being read. This needs no network.
   if (showing) {
     const isPaath = view.result.kind === 'bani';
-    const found = followLine(makeQuery(text), view.lines, view.current, { near: isPaath ? FOLLOW_NEAR : Infinity });
+    const query = makeQuery(text);
+    // Single lines first; if none fits, the running text of the next lines (misheard words
+    // from a phone across the room rarely fit one line, but still fit the passage).
+    const found = followLine(query, view.lines, view.current, { near: isPaath ? FOLLOW_NEAR : Infinity })
+      || (query.words && followRunning(query.words, view.lines, view.current));
     if (found) {
       view.lostSince = null;
       listening.pendingShabad = null;
