@@ -60,15 +60,16 @@ to credit them.
 
 ## Banis saved in the app
 
-The Panj Baniyan (Japji Sahib, Jaap Sahib, Tav Prasad Savaiye, Chaupai Sahib, Anand Sahib) are saved
-in `banis/` so they open instantly. To save more, use their BaniDB IDs, for example Rehras Sahib
-(21) and Sohila Sahib (23):
+The Nitnem banis (Japji Sahib, Jaap Sahib, Tav Prasad Savaiye, Chaupai Sahib, Anand Sahib,
+Rehras Sahib, Kirtan Sohila) are saved in `banis/` so they open instantly. When listening hears
+a line from one of them, the whole bani opens as a paath, with the next 2 lines showing under the
+current one. To save more, use their BaniDB IDs:
 
 ```bash
-python3 tools/fetch_banis.py 21 23
+python3 tools/fetch_banis.py 31
 ```
 
-then add them to `PANJ_BANIYAN` in `banis.js`.
+then add them to `NITNEM_BANIYAN` in `banis.js`.
 
 ## Files
 

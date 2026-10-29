@@ -1,5 +1,5 @@
 // Gurbani Sync: search for a shabad or bani, then show it as a slideshow (one line at a time)
-// or in full. Text comes from BaniDB (Khalis Foundation); the Panj Baniyan are saved in banis/.
+// or in full. Text comes from BaniDB (Khalis Foundation); the Nitnem banis are saved in banis/.
 
 const $ = (sel) => document.querySelector(sel);
 const GURMUKHI = /[਀-੿]/;
@@ -117,7 +117,7 @@ async function searchBanis(text) {
   const q = simplify(text);
   if (q.length < 3) return [];
   const list = await fetchBaniList();
-  const english = new Map(PANJ_BANIYAN.map((b) => [b.id, b.en]));
+  const english = new Map(NITNEM_BANIYAN.map((b) => [b.id, b.en]));
   // The name contains what was typed, or what was typed is the name plus a little more
   // ("japji sahib ji"), not a whole line that happens to contain a bani's name.
   const fits = (name) => {
@@ -125,7 +125,7 @@ async function searchBanis(text) {
     return s && (s.includes(q) || (s.length >= 4 && q.includes(s) && q.length <= s.length + 4));
   };
   const matches = list.filter((b) => [b.token, b.tl, b.gm, english.get(b.id)].some(fits));
-  // The Panj Baniyan first.
+  // The Nitnem banis first.
   matches.sort((a, b) => english.has(b.id) - english.has(a.id));
   return matches.slice(0, 6).map((b) => ({ kind: 'bani', id: b.id, gm: b.gm, en: english.get(b.id) || b.tl }));
 }
@@ -370,7 +370,7 @@ async function checkHeard() {
   if (top && top.score >= 0.6) fetchShabad(top.v.shabadId).catch(() => {}); // likely next: start loading it
   const onScreen = state.view;
   const sameShabad = showing && !!top && (onScreen.result.kind === 'bani'
-    ? onScreen.lines.some((l) => l.verseId === top.v.verseId)
+    ? onScreen.lines.some((l) => l.gm === top.v.verse.unicode)
     : onScreen.result.shabadId === top.v.shabadId);
   // Leaving the shabad on screen for another needs a little more certainty, since this runs
   // as soon as one check doesn't fit the open shabad.
@@ -379,7 +379,7 @@ async function checkHeard() {
   if (top?.score >= needed) {
     const v = top.v;
     if (sameShabad) {
-      moveTo(onScreen.lines.findIndex((l) => l.verseId === v.verseId));
+      moveTo(lineIn(onScreen, v.verse.unicode));
       return;
     }
     // Leaving what's on screen needs two checks in a row to agree on where to go.
@@ -388,15 +388,24 @@ async function checkHeard() {
       return;
     }
     listening.pendingShabad = null;
-    // Part of one of the Panj Baniyan: open the whole bani, as a paath, at this line.
-    const bani = await baniContaining(v.verseId);
+    // Part of a Nitnem bani: open the whole bani, as a paath, at this line.
+    const bani = await baniContaining(v.verse.unicode);
     if (!listening.on) return;
     const result = bani
-      ? { kind: 'bani', id: bani.id, gm: bani.gm, en: bani.en, verseId: v.verseId, auto: true }
+      ? { kind: 'bani', id: bani.id, gm: bani.gm, en: bani.en, line: v.verse.unicode, auto: true }
       : { kind: 'shabad', shabadId: v.shabadId, verseId: v.verseId, gm: v.verse.unicode, meta: verseMeta(v) };
     // Keep showing it the way it's being shown now; from the results, use Open as.
     await openResult(result, slides.isOpen ? 'slides' : showing ? 'full' : state.mode);
   }
+}
+
+// Where a line heard in a bani is: the copy nearest the current line, since refrains repeat.
+function lineIn(view, text) {
+  let best = -1;
+  view.lines.forEach((l, i) => {
+    if (l.gm === text && (best < 0 || Math.abs(i - view.current) < Math.abs(best - view.current))) best = i;
+  });
+  return best;
 }
 
 // Move the slideshow, or the highlight in the full view, to line i.
@@ -497,7 +506,7 @@ async function loadView(result) {
     const bani = await fetchBani(result.id);
     const lines = linesFor(bani, $('#optVersion').value);
     // Opened by listening: start at the line heard.
-    const current = Math.max(0, lines.findIndex((l) => l.verseId === result.verseId));
+    const current = Math.max(0, lines.findIndex((l) => l.gm === result.line));
     return { result, title: bani.name, meta: result.en, lines, current };
   }
   const data = await fetchShabad(result.shabadId);

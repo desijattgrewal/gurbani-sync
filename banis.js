@@ -1,14 +1,16 @@
-// Loading banis: the Panj Baniyan from banis/ (instant and offline), the rest from BaniDB.
+// Loading banis: the daily Nitnem banis from banis/ (instant and offline), the rest from BaniDB.
 
 const API = 'https://api.banidb.com/v2';
 
-// Saved in banis/ by tools/fetch_banis.py.
-const PANJ_BANIYAN = [
+// Saved in banis/ by tools/fetch_banis.py: the Panj Baniyan, Rehras Sahib and Kirtan Sohila.
+const NITNEM_BANIYAN = [
   { id: 2, gm: 'ਜਪੁਜੀ ਸਾਹਿਬ', en: 'Japji Sahib' },
   { id: 4, gm: 'ਜਾਪੁ ਸਾਹਿਬ', en: 'Jaap Sahib' },
   { id: 6, gm: 'ਤ੍ਵ ਪ੍ਰਸਾਦਿ ਸਵੱਯੇ', en: 'Tav Prasad Savaiye' },
   { id: 9, gm: 'ਬੇਨਤੀ ਚੌਪਈ ਸਾਹਿਬ', en: 'Chaupai Sahib' },
   { id: 10, gm: 'ਅਨੰਦੁ ਸਾਹਿਬ', en: 'Anand Sahib' },
+  { id: 21, gm: 'ਰਹਰਾਸਿ ਸਾਹਿਬ', en: 'Rehras Sahib' },
+  { id: 23, gm: 'ਸੋਹਿਲਾ ਸਾਹਿਬ', en: 'Kirtan Sohila' },
 ];
 
 // ---------- storage (best effort; the app works without it) ----------
@@ -53,7 +55,7 @@ function slimBani(id, data) {
 const baniCache = new Map();
 function fetchBani(id) {
   if (!baniCache.has(id)) {
-    const saved = PANJ_BANIYAN.some((b) => b.id === id);
+    const saved = NITNEM_BANIYAN.some((b) => b.id === id);
     const load = saved
       ? fetch(`banis/${id}.json`).then((r) => r.json())
       : fetch(`${API}/banis/${id}`).then((r) => {
@@ -65,25 +67,32 @@ function fetchBani(id) {
   return baniCache.get(id);
 }
 
-// Which of the Panj Baniyan a line is part of, by BaniDB verse ID, or null. BaniDB files a
-// bani such as Japji Sahib as many shabads (one per pauri); listening opens the whole bani
-// instead, so it follows the paath without searching again at every pauri.
+// Which Nitnem bani a line is part of, by its text, or null. BaniDB files a bani such as
+// Japji Sahib as many shabads (one per pauri); listening opens the whole bani instead, so it
+// follows the paath (with the next lines showing) without searching again at every pauri.
+// By text, because a bani's lines carry BaniDB IDs of their own, not the ones search returns.
+// Headings and lines under 3 words (ਚੌਪਈ ॥, ਸਲੋਕ ਮਃ ੧ ॥) are in too many places to tell. A
+// line in two banis (Rehras Sahib includes Chaupai Sahib) goes to the one listed first.
 let baniIndex = null;
-async function baniContaining(verseId) {
-  baniIndex ??= Promise.all(PANJ_BANIYAN.map(async (b) => [b, await fetchBani(b.id)]))
+async function baniContaining(text) {
+  baniIndex ??= Promise.all(NITNEM_BANIYAN.map(async (b) => [b, await fetchBani(b.id)]))
     .then((all) => {
       const index = new Map();
-      for (const [b, bani] of all) for (const l of bani.lines) if (!index.has(l.verseId)) index.set(l.verseId, b);
+      for (const [b, bani] of all) {
+        for (const l of bani.lines) {
+          if (!l.header && gurmukhiWords(l.gm).length >= 3 && !index.has(l.gm)) index.set(l.gm, b);
+        }
+      }
       return index;
     })
     .catch(() => new Map());
-  return (await baniIndex).get(verseId) || null;
+  return (await baniIndex).get(text) || null;
 }
 
 // The lines read in one version (Chaupai Sahib differs the most).
 const linesFor = (bani, version) => bani.lines.filter((l) => !l.v || l.v.includes(version));
 
-// Every bani BaniDB has: [{ id, gm, tl, token }]. The Panj Baniyan alone when offline.
+// Every bani BaniDB has: [{ id, gm, tl, token }]. The Nitnem banis alone when offline.
 let baniListLoad = null;
 function fetchBaniList() {
   baniListLoad ??= (async () => {
@@ -95,7 +104,7 @@ function fetchBaniList() {
       store.set('paath:banis2', list);
       return list;
     } catch {
-      return PANJ_BANIYAN.map((b) => ({ id: b.id, gm: b.gm, tl: b.en, token: '' }));
+      return NITNEM_BANIYAN.map((b) => ({ id: b.id, gm: b.gm, tl: b.en, token: '' }));
     }
   })();
   return baniListLoad;
