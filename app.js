@@ -192,6 +192,10 @@ const FOLLOW_NEAR = 12;
 // How long a bani opened by listening waits, with nothing fitting it, before another
 // shabad may take its place.
 const PAATH_PATIENCE = 6000;
+// No move for this long while words keep coming: start fresh and look for the reader anywhere
+// in what's open (a running-text fit of RESET_SCORE or better), then in all of BaniDB.
+const STUCK_RESET = 15000;
+const RESET_SCORE = 0.6;
 
 // Every browser on iPhone and iPad, and Safari on a Mac, uses Apple's speech recognition,
 // which has no Punjabi. There the app listens in Hindi and writes what it hears in Gurmukhi.
@@ -319,7 +323,19 @@ async function checkHeard() {
     // from a phone across the room rarely fit one line, but still fit the passage).
     const found = followLine(query, view.lines, view.current, { near: isPaath ? FOLLOW_NEAR : Infinity })
       || (query.words && followRunning(query.words, view.lines, view.current));
-    if (found) {
+    // Stuck: the line hasn't moved for STUCK_RESET ms although words keep coming. Start fresh:
+    // drop half-made guesses and look for the reader anywhere in what's open; failing that,
+    // ask BaniDB below, which also notices a move to another shabad.
+    const now = Date.now();
+    if ((!found || found.i === view.current) && now - (view.movedAt || 0) >= STUCK_RESET && now - (view.resetAt || 0) >= STUCK_RESET) {
+      view.resetAt = now;
+      listening.pendingLine = null;
+      const anywhere = query.words && followRunning(query.words, view.lines, 0, { ahead: view.lines.length });
+      if (anywhere && anywhere.score >= RESET_SCORE && anywhere.i !== view.current) {
+        moveTo(anywhere.i);
+        return;
+      }
+    } else if (found) {
       view.lostSince = null;
       listening.pendingShabad = null;
       // On to the next line straight away (followLine already waits for 3 of its words).
@@ -333,7 +349,8 @@ async function checkHeard() {
     // A paath stays open while the reading pauses or wanders. One chosen from the results
     // stays for good; one that listening opened gives way only after PAATH_PATIENCE ms in
     // which nothing fits it (kirtan may sing one pauri of Anand Sahib, then move on).
-    if (isPaath) {
+    // Starting fresh always checks with BaniDB.
+    if (isPaath && view.resetAt !== now) {
       view.lostSince ??= Date.now();
       if (!view.result.auto || Date.now() - view.lostSince < PAATH_PATIENCE) return;
     }
@@ -386,6 +403,7 @@ async function checkHeard() {
 function moveTo(i) {
   if (i < 0 || !state.view) return;
   state.view.current = i;
+  state.view.movedAt = Date.now();
   markCurrent();
   if (slides.isOpen) slides.show(i);
   else $('#readerLines').children[i]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -502,6 +520,7 @@ async function openResult(result, how) {
   setStatus('Opening…');
   try {
     state.view = await loadView(result);
+    state.view.movedAt = Date.now();
   } catch (err) {
     setStatus(`Could not open it: ${err.message}`);
     return;
