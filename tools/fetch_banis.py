@@ -1,7 +1,7 @@
 """Download banis from BaniDB and save them in the app, so they load instantly and offline.
 
-    python3 tools/fetch_banis.py            # the 5 banis (Panj Baniyan)
-    python3 tools/fetch_banis.py 21 23      # add more by BaniDB ID (21 Rehras Sahib, 23 Sohila Sahib)
+    python3 tools/fetch_banis.py            # the Nitnem banis (Panj Baniyan, Rehras, Sohila)
+    python3 tools/fetch_banis.py 31         # add more by BaniDB ID
 
 Writes banis/<id>.json in the same compact format app.js builds from the live API.
 """
@@ -12,7 +12,7 @@ import sys
 import urllib.request
 
 API = "https://api.banidb.com/v2"
-PANJ_BANIYAN = [2, 4, 6, 9, 10]  # Japji, Jaap, Tav Prasad Savaiye, Chaupai, Anand
+NITNEM_BANIYAN = [2, 4, 6, 9, 10, 21, 23]  # Japji, Jaap, Tav Prasad Savaiye, Chaupai, Anand, Rehras, Sohila
 OUT = pathlib.Path(__file__).resolve().parent.parent / "banis"
 
 
@@ -43,7 +43,7 @@ def slim(bani_id, data):
 
 
 def main():
-    ids = [int(a) for a in sys.argv[1:]] or PANJ_BANIYAN
+    ids = [int(a) for a in sys.argv[1:]] or NITNEM_BANIYAN
     OUT.mkdir(exist_ok=True)
     for bani_id in ids:
         with urllib.request.urlopen(f"{API}/banis/{bani_id}") as res:
