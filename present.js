@@ -10,13 +10,16 @@
 //     allowUpcoming: () => true, // optional: whether next lines apply to what's showing now
 //     storageKey: 'bani', // optional: remembers the viewer's upcoming-lines choice per page
 //     onClose: () => {},  // optional: the viewer left the slideshow
-//     tapToAdvance: true, // optional: a tap or click on the line moves to the next one
+//     tapToAdvance: true, // optional: a tap on the right half moves to the next line, the left half back
 //     brand: 'Gurbani Sync', // optional: shown small in the bottom corner, with ੴ
 //     credit: { text: 'Powered by', name: 'BaniDB', url: 'https://banidb.com', logo: 'assets/banidb-logo.png' }, // optional
 //   });
 //   slides.open(); slides.show(i); slides.next(); slides.setMeta(text); slides.setStatus(text);
+//   slides.setLive('waiting' | 'hearing' | ''); // the light beside the title: mic on, words coming, off
 
 const UPCOMING_LINES = 2;
+// The smallest a slide's text shrinks to so that everything on it fits the screen.
+const MIN_FIT = 0.35;
 
 // Toolbar icons (24×24, drawn in the button's text colour). On a phone only the icons show,
 // so the toolbar fits on one row; wider screens also show the labels.
@@ -47,7 +50,8 @@ function createSlideshow({ getLine, count, placeholder, onNavigate, upcoming = 0
   root.setAttribute('aria-label', 'Slideshow');
   root.innerHTML = `
     <div class="ss-top">
-      <span class="ss-meta"></span>
+      <span class="ss-brand"></span>
+      <span class="ss-meta"><span class="ss-live"></span><span class="ss-meta-text"></span></span>
       <div class="ss-actions">
         ${actionButton('prev', ICONS.prev, 'Previous line', 'Previous line (←)')}
         ${actionButton('next', ICONS.next, 'Next line', 'Next line (→)')}
@@ -59,7 +63,6 @@ function createSlideshow({ getLine, count, placeholder, onNavigate, upcoming = 0
     </div>
     <div class="ss-stage" aria-live="polite"></div>
     <div class="ss-bottom">
-      <span class="ss-brand"></span>
       <span class="ss-status"></span>
       <span class="ss-credit"></span>
     </div>`;
@@ -141,6 +144,21 @@ function createSlideshow({ getLine, count, placeholder, onNavigate, upcoming = 0
     return slide;
   }
 
+  // Shrinks a slide's text until it all fits, so the next lines are never cut off the bottom
+  // (a phone held sideways, or long lines with translations).
+  function fitSlide(slide) {
+    slide.style.removeProperty('--fit');
+    const room = stage.clientHeight;
+    if (!room) return;
+    let fit = 1;
+    for (let k = 0; k < 8; k++) {
+      const height = slide.lastElementChild.getBoundingClientRect().bottom - slide.firstElementChild.getBoundingClientRect().top;
+      if (height <= room || fit === MIN_FIT) return;
+      fit = Math.max(MIN_FIT, fit * room / height * 0.97);
+      slide.style.setProperty('--fit', fit);
+    }
+  }
+
   function show(i, { force = false } = {}) {
     if (root.hidden) return;
     const line = i >= 0 ? getLine(i) : null;
@@ -154,8 +172,14 @@ function createSlideshow({ getLine, count, placeholder, onNavigate, upcoming = 0
     }
     const slide = slideFor(line, i);
     stage.appendChild(slide);
+    fitSlide(slide);
     requestAnimationFrame(() => slide.classList.add('in'));
   }
+
+  // Turning the phone, resizing the window or a late font changes what fits.
+  const refit = () => { const slide = stage.querySelector('.ss-slide:not(.leaving)'); if (slide) fitSlide(slide); };
+  window.addEventListener('resize', refit);
+  document.fonts?.ready.then(refit);
 
   // Hide the controls and cursor when the mouse is still, so only the bani shows.
   function wake() {
@@ -234,9 +258,26 @@ function createSlideshow({ getLine, count, placeholder, onNavigate, upcoming = 0
   root.addEventListener('mousemove', wake);
   // Touch screens have no mouse to move: a tap brings the controls back.
   root.addEventListener('touchstart', wake, { passive: true });
+  // Touch screens: swipe left for the next line, right for the previous one.
+  let touchStart = null;
+  stage.addEventListener('touchstart', (e) => {
+    const t = e.touches[0];
+    touchStart = { x: t.clientX, y: t.clientY };
+  }, { passive: true });
+  stage.addEventListener('touchend', (e) => {
+    if (!touchStart) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touchStart.x;
+    const dy = t.clientY - touchStart.y;
+    touchStart = null;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > 1.5 * Math.abs(dy)) step(dx < 0 ? 1 : -1);
+  });
   if (tapToAdvance) {
     stage.style.cursor = 'pointer';
-    stage.addEventListener('click', () => step(1));
+    stage.addEventListener('click', (e) => {
+      const box = stage.getBoundingClientRect();
+      step(e.clientX < box.left + box.width / 2 ? -1 : 1);
+    });
   }
 
   // Capture phase, so these keys drive the slideshow instead of the page underneath.
@@ -264,7 +305,9 @@ function createSlideshow({ getLine, count, placeholder, onNavigate, upcoming = 0
     next: () => step(1),
     get isOpen() { return !root.hidden; },
     refresh: () => show(shown ?? -1, { force: true }),
-    setMeta: (text) => { root.querySelector('.ss-meta').textContent = text || ''; },
+    setMeta: (text) => { root.querySelector('.ss-meta-text').textContent = text || ''; },
+    setLive: (live) => { root.dataset.live = live; },
+    setLight: setTheme, // white background (true) or black
     setStatus: (text) => { root.querySelector('.ss-status').textContent = text || ''; },
     // Lets a page add its own control, e.g. the microphone toggle (icon: a key of ICONS).
     addAction(label, onClick, icon = 'mic') {

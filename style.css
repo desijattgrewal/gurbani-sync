@@ -42,12 +42,31 @@
   }
 }
 
+/* The iPhone app is always dark. */
+:root[data-theme="dark"] {
+  --bg: #0f1218;
+  --surface: #171b23;
+  --surface-2: #1c212b;
+  --text: #ece9e3;
+  --text-2: #c9ccd2;
+  --muted: #949cab;
+  --border: #272d39;
+  --accent: #f0a443;
+  --accent-strong: #f5b864;
+  --accent-soft: #2c2215;
+  --navy: #9fbbe6;
+  --on-navy: #0f1218;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px rgb(0 0 0 / 0.25);
+  --shadow-lift: 0 2px 4px rgb(0 0 0 / 0.35), 0 14px 32px rgb(0 0 0 / 0.35);
+  color-scheme: dark;
+}
+
 /* ---------- base ---------- */
 
 * { box-sizing: border-box; }
 html, body { margin: 0; }
 body {
-  min-height: 100vh;
+  min-height: 100dvh;
   background: var(--bg);
   color: var(--text);
   font-family: var(--ui);
@@ -154,13 +173,13 @@ select {
 
 .search-page { max-width: 760px; margin: 0 auto; padding: 0 16px 64px; }
 
-.hero { padding-top: 9vh; text-align: center; transition: padding 0.25s ease; }
+.hero { padding-top: 7vh; text-align: center; transition: padding 0.25s ease; }
 .hero-title { margin: 0; font-size: clamp(26px, 4vw, 36px); font-weight: 600; letter-spacing: -0.02em; }
 .hero-sub { margin: 10px auto 28px; max-width: 520px; color: var(--muted); font-size: 16px; }
 
 /* Listening comes first: a big microphone with a slow, gentle halo to draw the eye. */
 .listen-hero[hidden], .hero-sub[hidden] { display: none; }
-.listen-hero .hero-sub { margin: 14px auto 0; max-width: 440px; }
+#listenHint { margin: 14px auto 0; max-width: 440px; }
 .big-mic {
   display: inline-flex;
   flex-direction: column;
@@ -191,6 +210,42 @@ select {
 }
 .big-mic-label { display: inline-flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 600; color: var(--text); }
 
+/* The seven daily banis, one tap away. */
+.nitnem { max-width: 520px; margin: 30px auto 24px; }
+.nitnem-title { margin: 0 0 10px; color: var(--muted); font-size: 13px; font-weight: 600; }
+.nitnem-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.nitnem-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 11px 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.nitnem-btn:hover { border-color: var(--accent); }
+.nitnem-btn:active { transform: scale(0.98); }
+.nitnem-btn:last-child:nth-child(odd) { grid-column: 1 / -1; }
+.nitnem-gm { font-family: var(--gurbani); font-size: 18px; font-weight: 600; line-height: 1.4; }
+.nitnem-en { color: var(--muted); font-size: 12.5px; }
+
+/* The home screen scales with the screen's height, so it all fits without scrolling. A very
+   small screen stops shrinking at sizes that are still easy to tap, and scrolls instead. */
+body:not(.compact) .search-page { padding-bottom: 12px; }
+body:not(.compact) .status:empty { min-height: 0; margin-top: 0; }
+body:not(.compact) .hero { padding-top: clamp(8px, 2dvh, 7vh); }
+body:not(.compact) .big-mic { gap: clamp(6px, 1dvh, 14px); margin-top: clamp(8px, 2dvh, 28px); }
+body:not(.compact) .big-mic-circle { width: clamp(72px, 11dvh, 104px); height: clamp(72px, 11dvh, 104px); }
+body:not(.compact) .search-options { margin-top: clamp(6px, 1.2dvh, 18px); }
+body:not(.compact) #listenHint { margin-top: clamp(6px, 1dvh, 14px); font-size: clamp(13px, 1.8dvh, 16px); line-height: 1.4; }
+body:not(.compact) .nitnem { margin: clamp(8px, 1.5dvh, 30px) auto 0; }
+body:not(.compact) .nitnem-title { margin-bottom: clamp(4px, 0.7dvh, 10px); }
+body:not(.compact) .nitnem-list { gap: clamp(6px, 1dvh, 10px); }
+body:not(.compact) .nitnem-btn { padding-block: clamp(4px, 0.8dvh, 11px); }
+
 /* While listening, the big microphone pulses and shows the words it hears. */
 .big-mic.on .big-mic-circle { background: var(--accent); color: #fff; animation: listen-pulse 1.2s ease-out infinite; }
 @keyframes listen-pulse {
@@ -213,6 +268,19 @@ select {
 
 /* Top bar Listen / Stop: takes over from the big microphone once a shabad is showing. */
 .topbar-actions { display: flex; align-items: center; gap: 8px; }
+.theme-btn {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: none;
+  color: var(--text-2);
+  transition: background-color 0.15s ease;
+}
+.theme-btn:hover { background: var(--surface); }
 .top-mic {
   display: inline-flex;
   align-items: center;
@@ -237,11 +305,12 @@ select {
 body.compact .hero { padding-top: 16px; }
 body.compact .hero-title,
 body.compact .hero-sub,
-body.compact .listen-hero { display: none; }
+body.compact .listen-hero,
+body.compact .nitnem { display: none; }
 
-.search-options { display: flex; justify-content: center; margin-top: 24px; }
+.search-options { display: flex; justify-content: center; margin-top: 18px; }
 
-/* Open as: Slideshow | Full shabad / paath */
+/* Open as: Slideshow | Full Text */
 .mode-switch {
   display: inline-flex;
   align-items: center;
@@ -407,8 +476,19 @@ body.slideshow-open { overflow: hidden; }
   font-size: 14px;
   transition: opacity 0.4s ease;
 }
-.ss-meta { color: #c9d1d9; font-size: 16px; font-weight: 500; }
-.ss-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.ss-meta { display: inline-flex; align-items: center; justify-content: center; gap: 8px; color: #c9d1d9; font-size: 16px; font-weight: 500; }
+/* The light beside the title: grey while the mic is on, glowing while words are coming in. */
+.ss-live { display: none; flex: none; width: 9px; height: 9px; border-radius: 50%; }
+.slideshow[data-live="waiting"] .ss-live { display: block; background: #5f6878; }
+.slideshow[data-live="hearing"] .ss-live { display: block; background: #f0a443; animation: live-glow 1.6s ease-in-out infinite; }
+@keyframes live-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(240 164 67 / 0.5); }
+  50% { box-shadow: 0 0 0 5px rgb(240 164 67 / 0.15); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .slideshow[data-live="hearing"] .ss-live { animation: none; }
+}
+.ss-actions { display: flex; flex-wrap: wrap; gap: 6px; transition: opacity 0.4s ease; }
 .ss-actions button {
   display: inline-flex;
   align-items: center;
@@ -432,15 +512,25 @@ body.slideshow-open { overflow: hidden; }
 .ss-actions [data-act="prev"] .ss-label, .ss-actions [data-act="next"] .ss-label { display: none; }
 .ss-actions [data-act="prev"], .ss-actions [data-act="next"] { padding: 7px 10px; }
 .slideshow.idle { cursor: none; }
-.slideshow.idle .ss-top { opacity: 0; }
-.slideshow.idle .ss-top * { pointer-events: none; }
-/* Phones: the title on its own line, then one row of round icon buttons. */
+/* Only the buttons hide: where the text comes from stays on screen. */
+.slideshow.idle .ss-actions { opacity: 0; }
+.slideshow.idle .ss-actions * { pointer-events: none; }
+/* Phones: the controls at the bottom, near the thumb: the title, then one row of round icon
+   buttons, centred, above the logo bar. */
 @media (max-width: 640px) {
-  .ss-top { padding: 12px 16px; }
-  .ss-meta { flex-basis: 100%; }
-  .ss-actions { flex-wrap: nowrap; gap: 8px; }
-  .ss-actions button { width: 42px; height: 42px; padding: 0; }
+  .ss-stage { order: 1; margin-top: 44px; }
+  /* The logo stays at the top of the screen; the rest of this row sits near the thumb. */
+  .ss-brand { position: absolute; top: calc(env(safe-area-inset-top) + 10px); left: 16px; }
+  .ss-top { order: 2; justify-content: center; padding: 8px 16px 4px; }
+  .slideshow .ss-bottom { order: 3; }
+  .ss-meta { flex-basis: 100%; text-align: center; }
+  .ss-actions { flex-wrap: nowrap; justify-content: center; gap: 10px; }
+  .ss-actions button { width: 44px; height: 44px; padding: 0; }
   .ss-actions .ss-label { display: none; }
+}
+/* Touch screens swipe between lines, so the arrows aren't needed there. */
+@media (max-width: 640px) and (pointer: coarse) {
+  .ss-actions [data-act="prev"], .ss-actions [data-act="next"] { display: none; }
 }
 
 .ss-stage { position: relative; flex: 1; min-height: 0; }
@@ -451,7 +541,7 @@ body.slideshow-open { overflow: hidden; }
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.6em;
+  gap: calc(0.6em * var(--fit, 1));
   padding: 0 6vw;
   text-align: center;
   opacity: 0;
@@ -464,28 +554,28 @@ body.slideshow-open { overflow: hidden; }
   .ss-slide, .ss-slide.leaving { transform: none; transition: opacity 0.2s linear; }
 }
 .ss-slide p { margin: 0; max-width: 1400px; text-wrap: balance; }
-.ss-gm { font-family: var(--gurbani); font-size: clamp(34px, 6.2vw, 96px); line-height: 1.45; font-weight: 600; }
+.ss-gm { font-family: var(--gurbani); font-size: calc(clamp(34px, 6.2vw, 96px) * var(--fit, 1)); line-height: 1.45; font-weight: 600; }
 .ss-placeholder { color: #8b95a7; font-weight: 400; font-size: clamp(24px, 3.5vw, 48px); }
-.slideshow .ss-tl { color: #f0a443; font-style: italic; font-size: clamp(18px, 2.4vw, 34px); }
-.slideshow .ss-en { color: #c9d1d9; font-size: clamp(18px, 2.4vw, 34px); line-height: 1.4; }
-.slideshow .ss-pu { color: #c9d1d9; font-family: var(--gurmukhi); font-size: clamp(18px, 2.2vw, 30px); line-height: 1.5; }
+.slideshow .ss-tl { color: #f0a443; font-style: italic; font-size: calc(clamp(18px, 2.4vw, 34px) * var(--fit, 1)); }
+.slideshow .ss-en { color: #c9d1d9; font-size: calc(clamp(18px, 2.4vw, 34px) * var(--fit, 1)); line-height: 1.4; }
+.slideshow .ss-pu { color: #c9d1d9; font-family: var(--gurmukhi); font-size: calc(clamp(18px, 2.2vw, 30px) * var(--fit, 1)); line-height: 1.5; }
 /* For a paath: the next lines, so the reader can see what's coming. */
 .ss-upcoming {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.35em;
-  margin-top: 1.4em;
-  padding-top: 1em;
+  margin-top: calc(1.4em * var(--fit, 1));
+  padding-top: calc(1em * var(--fit, 1));
   border-top: 1px solid rgb(255 255 255 / 0.1);
   max-width: 1400px;
 }
-.slideshow .ss-next { font-family: var(--gurbani); font-size: clamp(20px, 3.2vw, 48px); line-height: 1.4; color: #8b95a7; }
+.slideshow .ss-next { font-family: var(--gurbani); font-size: calc(clamp(20px, 3.2vw, 48px) * var(--fit, 1)); line-height: 1.4; color: #8b95a7; }
 .slideshow .ss-next + .ss-next { color: #5f6878; }
 
 .ss-status:not(:empty)::before { content: "● "; color: #f0a443; }
 
-/* Bottom bar: logo on the left, status in the middle, the text's source on the right. Quiet,
+/* Bottom bar: status in the middle, the text's source on the right. Quiet,
    so it never competes with the Gurbani, and always visible, even when the controls hide. */
 .slideshow .ss-bottom {
   display: grid;
@@ -498,8 +588,8 @@ body.slideshow-open { overflow: hidden; }
 .ss-brand { display: inline-flex; align-items: center; gap: 8px; justify-self: start; color: #aab2c0; opacity: 0.8; }
 .ss-brand-mark { font-family: var(--gurbani); font-size: 22px; line-height: 1; color: #f0a443; }
 .ss-brand-name { font-weight: 600; letter-spacing: 0.01em; }
-.ss-status { justify-self: center; text-align: center; }
-.ss-credit { display: inline-flex; align-items: center; gap: 8px; justify-self: end; color: #7d8696; }
+.ss-status { grid-column: 2; justify-self: center; text-align: center; }
+.ss-credit { grid-column: 3; display: inline-flex; align-items: center; gap: 8px; justify-self: end; color: #7d8696; }
 .ss-credit a { color: #aab2c0; font-weight: 600; text-decoration: none; }
 .ss-credit a:hover { color: #f5b864; text-decoration: underline; }
 /* BaniDB's logo is dark text on transparent, so it sits on a small white tag. */
@@ -514,14 +604,17 @@ body.slideshow-open { overflow: hidden; }
 .ss-credit-logo:hover { opacity: 1; }
 .ss-credit-logo img { display: block; height: 18px; width: auto; }
 @media (max-width: 640px) {
-  .slideshow .ss-bottom { grid-template-columns: 1fr 1fr; padding: 12px 16px 14px; }
-  .ss-status { grid-column: 1 / -1; grid-row: 1; }
+  .slideshow .ss-bottom { grid-template-columns: 1fr; padding: 8px 16px 14px; }
+  .ss-status { grid-column: 1; grid-row: 1; }
+  .ss-credit { grid-column: 1; justify-self: center; }
 }
 
 /* White background: the same slideshow, inverted, for bright rooms or printing on screen. */
 .slideshow.light { background: radial-gradient(ellipse at 50% 40%, #ffffff 0%, #f1eee8 75%); color: #1b2230; }
 .slideshow.light .ss-top, .slideshow.light .ss-bottom { color: #6e7685; }
 .slideshow.light .ss-meta { color: #3d4655; }
+.slideshow.light[data-live="waiting"] .ss-live { background: #aab2c0; }
+.slideshow.light[data-live="hearing"] .ss-live { background: #d9831a; }
 .slideshow.light .ss-actions button { background: rgb(27 34 48 / 0.04); border-color: rgb(27 34 48 / 0.14); color: #2b3342; }
 .slideshow.light .ss-actions button:hover { background: rgb(27 34 48 / 0.08); border-color: rgb(27 34 48 / 0.28); }
 .slideshow.light .ss-actions button.on { border-color: #d9831a; color: #b0680d; }
@@ -545,7 +638,6 @@ body:not(.compact) .status.is-listening { display: none; }
   .brand-name { font-size: 15px; }
   .menu summary span { display: none; }
   .menu summary { padding: 8px; }
-  .hero { padding-top: 7vh; }
   .hero-sub { font-size: 15px; margin-bottom: 22px; }
   .mode-switch { width: 100%; }
   .mode-label { display: none; }

@@ -196,6 +196,9 @@ const PAATH_PATIENCE = 6000;
 // in what's open (a running-text fit of RESET_SCORE or better), then in all of BaniDB.
 const STUCK_RESET = 15000;
 const RESET_SCORE = 0.6;
+// The slideshow's light stays lit this long after the last words heard (the app sends words
+// about every 2 seconds while following).
+const HEARING_LIGHT = 5000;
 
 // Every browser on iPhone and iPad, and Safari on a Mac, uses Apple's speech recognition,
 // which has no Punjabi. There the app listens in Hindi and writes what it hears in Gurmukhi.
@@ -227,6 +230,7 @@ const listening = {
   applied: 0,   // newest check whose answer was used
   pendingLine: null, // line the last check wanted to move to, waiting for a second check
   pendingShabad: null, // likewise for a different shabad
+  lightTimer: null, // when the slideshow's light goes back to waiting
 };
 
 function startListening(langIndex = 0) {
@@ -290,7 +294,8 @@ function showListenState() {
   updateLayout();
   slides.setActionLabel(slidesMic, on ? 'Stop listening' : 'Listen');
   slidesMic.classList.toggle('on', on);
-  slides.setStatus(on ? 'Listening' : '');
+  slides.setLive(on ? 'waiting' : '');
+  slides.setStatus('');
 }
 
 // Is a shabad or paath on screen (slideshow or full view)?
@@ -301,6 +306,7 @@ function onSpeech(event) {
   listening.interim = [];
   for (let i = event.resultIndex; i < event.results.length; i++) {
     const words = gurmukhiWords(event.results[i][0].transcript);
+    if (words.length) lightUp();
     if (event.results[i].isFinal) listening.heard.push(...words);
     else listening.interim.push(...words);
   }
@@ -308,6 +314,13 @@ function onSpeech(event) {
   listening.text = [...listening.heard, ...listening.interim].slice(-10).join(' ');
   $('#heard').textContent = listening.text; // the words heard so far, under the microphone
   if (!listening.timer) listening.timer = setTimeout(() => { listening.timer = null; checkHeard(); }, 150);
+}
+
+// Words are coming in: the slideshow's light glows until they stop.
+function lightUp() {
+  slides.setLive('hearing');
+  clearTimeout(listening.lightTimer);
+  listening.lightTimer = setTimeout(() => { if (listening.on) slides.setLive('waiting'); }, HEARING_LIGHT);
 }
 
 async function checkHeard() {
@@ -435,6 +448,7 @@ async function onListenButton() {
 if (Recognition) {
   $('#listenBtn').hidden = false;
   $('#listenHero').hidden = false;
+  $('#listenHint').hidden = false;
   $('#listenBtn').addEventListener('click', onListenButton);
   $('#bigListenBtn').addEventListener('click', onListenButton);
 } else {
@@ -475,6 +489,18 @@ $('#results').addEventListener('click', (e) => {
   const card = e.target.closest('.result-card');
   if (card) openResult(state.results[Number(card.dataset.i)], state.mode);
 });
+
+// One tap to any Nitnem bani from the home screen, no listening needed.
+$('#nitnemList').append(...NITNEM_BANIYAN.map((b) => {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'nitnem-btn';
+  btn.innerHTML = '<span class="nitnem-gm"></span><span class="nitnem-en"></span>';
+  btn.querySelector('.nitnem-gm').textContent = b.gm;
+  btn.querySelector('.nitnem-en').textContent = b.en;
+  btn.addEventListener('click', () => openResult({ kind: 'bani', id: b.id, gm: b.gm, en: b.en }, state.mode));
+  return btn;
+}));
 
 function showMode() {
   for (const btn of document.querySelectorAll('.mode-switch button')) {
@@ -601,7 +627,7 @@ const slides = createSlideshow({
   },
   count: () => state.view?.lines.length || 0,
   placeholder: () => state.view?.title || '',
-  onNavigate: (i) => { state.view.current = i; markCurrent(); },
+  onNavigate: (i) => { state.view.current = i; state.view.movedAt = Date.now(); markCurrent(); },
   upcoming: UPCOMING_LINES, // paath readers see what's coming next...
   allowUpcoming: () => state.view?.result.kind === 'bani', // ...shabads don't need it
   storageKey: 'main',
@@ -625,6 +651,31 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ---------- wiring ----------
+
+// Day or night, for the whole app. Until it's chosen, the phone's or computer's own setting
+// decides; the slideshow changes with it and can still be changed on its own.
+const THEME_ICONS = {
+  day: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10Zm-1-5h2v3h-2V2Zm0 17h2v3h-2v-3ZM2 11h3v2H2v-2Zm17 0h3v2h-3v-2ZM4.22 5.64l1.42-1.42 2.12 2.12-1.42 1.42-2.12-2.12Zm12.02 12.02 1.42-1.42 2.12 2.12-1.42 1.42-2.12-2.12ZM18.36 4.22l1.42 1.42-2.12 2.12-1.42-1.42 2.12-2.12ZM6.34 16.24l1.42 1.42-2.12 2.12-1.42-1.42 2.12-2.12Z"/></svg>',
+  night: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M21 14.5A9 9 0 0 1 9.5 3a9 9 0 1 0 11.5 11.5Z"/></svg>',
+};
+const isDark = () => (document.documentElement.dataset.theme
+  || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark';
+
+function showThemeButton() {
+  const label = isDark() ? 'Day mode' : 'Night mode';
+  $('#themeBtn').innerHTML = THEME_ICONS[isDark() ? 'day' : 'night'];
+  $('#themeBtn').setAttribute('aria-label', label);
+  $('#themeBtn').title = label;
+}
+showThemeButton();
+
+$('#themeBtn').addEventListener('click', () => {
+  const theme = isDark() ? 'light' : 'dark';
+  document.documentElement.dataset.theme = theme;
+  try { localStorage.setItem('paath:theme', theme); } catch { /* not remembered */ }
+  slides.setLight(theme === 'light');
+  showThemeButton();
+});
 
 // Display options (the full view and the slideshow both follow these)
 const displayOpts = { optTl: 'show-tl', optEn: 'show-en', optPu: 'show-pu' };
