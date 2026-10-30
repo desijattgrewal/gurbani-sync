@@ -476,7 +476,7 @@ body.slideshow-open { overflow: hidden; }
   font-size: 14px;
   transition: opacity 0.4s ease;
 }
-.ss-meta { display: inline-flex; align-items: center; justify-content: center; gap: 8px; color: #c9d1d9; font-size: 16px; font-weight: 500; }
+.ss-meta { grid-column: 2; grid-row: 1; display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-align: center; color: #c9d1d9; font-size: 15px; font-weight: 500; }
 /* The light beside the title: grey while the mic is on, glowing while words are coming in. */
 .ss-live { display: none; flex: none; width: 9px; height: 9px; border-radius: 50%; }
 .slideshow[data-live="waiting"] .ss-live { display: block; background: #5f6878; }
@@ -523,7 +523,6 @@ body.slideshow-open { overflow: hidden; }
   .ss-brand { position: absolute; top: calc(env(safe-area-inset-top) + 10px); left: 16px; }
   .ss-top { order: 2; justify-content: center; padding: 8px 16px 4px; }
   .slideshow .ss-bottom { order: 3; }
-  .ss-meta { flex-basis: 100%; text-align: center; }
   .ss-actions { flex-wrap: nowrap; justify-content: center; gap: 10px; }
   .ss-actions button { width: 44px; height: 44px; padding: 0; }
   .ss-actions .ss-label { display: none; }
@@ -575,7 +574,7 @@ body.slideshow-open { overflow: hidden; }
 
 .ss-status:not(:empty)::before { content: "● "; color: #f0a443; }
 
-/* Bottom bar: status in the middle, the text's source on the right. Quiet,
+/* Bottom bar: where the text comes from in the middle, BaniDB's credit on the right. Quiet,
    so it never competes with the Gurbani, and always visible, even when the controls hide. */
 .slideshow .ss-bottom {
   display: grid;
@@ -588,8 +587,9 @@ body.slideshow-open { overflow: hidden; }
 .ss-brand { display: inline-flex; align-items: center; gap: 8px; justify-self: start; color: #aab2c0; opacity: 0.8; }
 .ss-brand-mark { font-family: var(--gurbani); font-size: 22px; line-height: 1; color: #f0a443; }
 .ss-brand-name { font-weight: 600; letter-spacing: 0.01em; }
-.ss-status { grid-column: 2; justify-self: center; text-align: center; }
-.ss-credit { grid-column: 3; display: inline-flex; align-items: center; gap: 8px; justify-self: end; color: #7d8696; }
+.ss-status { grid-column: 2; grid-row: 2; justify-self: center; text-align: center; }
+.ss-status:empty { display: none; }
+.ss-credit { grid-column: 3; grid-row: 1; display: inline-flex; align-items: center; gap: 8px; justify-self: end; color: #7d8696; }
 .ss-credit a { color: #aab2c0; font-weight: 600; text-decoration: none; }
 .ss-credit a:hover { color: #f5b864; text-decoration: underline; }
 /* BaniDB's logo is dark text on transparent, so it sits on a small white tag. */
@@ -605,8 +605,9 @@ body.slideshow-open { overflow: hidden; }
 .ss-credit-logo img { display: block; height: 18px; width: auto; }
 @media (max-width: 640px) {
   .slideshow .ss-bottom { grid-template-columns: 1fr; padding: 8px 16px 14px; }
-  .ss-status { grid-column: 1; grid-row: 1; }
-  .ss-credit { grid-column: 1; justify-self: center; }
+  .ss-meta { grid-column: 1; }
+  .ss-status { grid-column: 1; }
+  .ss-credit { grid-column: 1; grid-row: 3; justify-self: center; }
 }
 
 /* White background: the same slideshow, inverted, for bright rooms or printing on screen. */

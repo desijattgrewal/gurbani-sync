@@ -11,7 +11,7 @@
 //     storageKey: 'bani', // optional: remembers the viewer's upcoming-lines choice per page
 //     onClose: () => {},  // optional: the viewer left the slideshow
 //     tapToAdvance: true, // optional: a tap on the right half moves to the next line, the left half back
-//     brand: 'Gurbani Sync', // optional: shown small in the bottom corner, with ੴ
+//     brand: 'Gurbani Sync', // optional: shown small at the top, with ੴ
 //     credit: { text: 'Powered by', name: 'BaniDB', url: 'https://banidb.com', logo: 'assets/banidb-logo.png' }, // optional
 //   });
 //   slides.open(); slides.show(i); slides.next(); slides.setMeta(text); slides.setStatus(text);
@@ -51,7 +51,6 @@ function createSlideshow({ getLine, count, placeholder, onNavigate, upcoming = 0
   root.innerHTML = `
     <div class="ss-top">
       <span class="ss-brand"></span>
-      <span class="ss-meta"><span class="ss-live"></span><span class="ss-meta-text"></span></span>
       <div class="ss-actions">
         ${actionButton('prev', ICONS.prev, 'Previous line', 'Previous line (←)')}
         ${actionButton('next', ICONS.next, 'Next line', 'Next line (→)')}
@@ -63,6 +62,7 @@ function createSlideshow({ getLine, count, placeholder, onNavigate, upcoming = 0
     </div>
     <div class="ss-stage" aria-live="polite"></div>
     <div class="ss-bottom">
+      <span class="ss-meta"><span class="ss-live"></span><span class="ss-meta-text"></span></span>
       <span class="ss-status"></span>
       <span class="ss-credit"></span>
     </div>`;
